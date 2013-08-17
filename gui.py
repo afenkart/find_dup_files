@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import urwid
+import storage
 
 choices = u'Chapman Cleese Gilliam Idle Jones Palin'.split()
 
@@ -9,14 +10,61 @@ answer = { 'Chapman' : [ "foo", "bar", "test" ],
 
 browse_stack = []
 
+class NumericLayout(urwid.TextLayout):
+    """
+    TextLayout class for bottom-right aligned numbers
+    """
+    def layout( self, text, width, align, wrap ):
+        """
+        Return layout structure for right justified numbers.
+        """
+        lt = len(text)
+        r = lt % width # remaining segment not full width wide
+        if r:
+            linestarts = range( r, lt, width )
+            return [
+                # right-align the remaining segment on 1st line
+                [(width-r,None),(r, 0, r)]
+                # fill the rest of the lines
+                ] + [[(width, x, x+width)] for x in linestarts]
+        else:
+            linestarts = range( 0, lt, width )
+            return [[(width, x, x+width)] for x in linestarts]
+
+class DuplicatesWalker(urwid.ListWalker):
+    def __init__(self):
+        self.db = storage.Storage()
+        storage.build_test_corpus(self.db)
+        self.focus = 0
+        self.duplicates = self.db.duplicates().fetchall()
+        self.numeric_layout = NumericLayout()
+
+    def _get_at_pos(self, idx):
+        foo = self.duplicates[idx]
+        return urwid.Text("%d %s" % (idx, foo['Name']), layout=self.numeric_layout), idx
+
+    def get_focus(self): 
+        return self._get_at_pos(self.focus)
+
+    def set_focus(self):
+        self.focus = focus
+        self._modified()
+ 
+    def get_next(self, idx):
+        print len(self.duplicates)
+        if idx >= len(self.duplicates) - 1:
+            return (None, None)
+        return self._get_at_pos(idx + 1)
+
+    def get_prev(self, idx):
+        if (idx <= 1):
+            return (None, None)
+        return self._get_at_pos(idx - 1)
+
+
 class Browse(urwid.ListBox):
     def __init__(self, title, choices):
-        body = [urwid.Text(title), urwid.Divider()]
-        for c in choices:
-            button = urwid.Button(c)
-            urwid.connect_signal(button, 'click', self.item_chosen, c)
-            body.append(urwid.AttrMap(button, None, focus_map='reversed'))
-        urwid.ListBox.__init__(self, urwid.SimpleFocusListWalker(body))
+        urwid.ListBox.__init__(self, DuplicatesWalker())
 
     def get_focus_label(self):
         widget = self.focus 
@@ -73,16 +121,22 @@ def browse_out():
 def exit_program(button):
     raise urwid.ExitMainLoop()
 
-lbMain = Browse(u'Pythons', choices)
-main = urwid.Padding(lbMain, left=2, right=2)
+main = urwid.Padding(Browse(u'Pythons', choices), left=2, right=2)
 
 def unhandled_input(k):
     if (k == 'q'):
         raise urwid.ExitMainLoop()
 
+palette = [
+    ('body','black','dark cyan', 'standout'),
+    ('foot','light gray', 'black'),
+    ('key','light cyan', 'black', 'underline'),
+    ('title', 'white', 'black',),
+    ]
+
 top = urwid.Overlay(main, urwid.SolidFill(u'\N{MEDIUM SHADE}'),
     align='center', width=('relative', 60),
     valign='middle', height=('relative', 60),
     min_width=20, min_height=9)
-urwid.MainLoop(top, palette=[('reversed', 'standout', '')], unhandled_input=unhandled_input).run()
+urwid.MainLoop(top, palette, unhandled_input=unhandled_input).run()
 #loop = urwid.MainLoop(fill, unhandled_input=show_or_exit)
