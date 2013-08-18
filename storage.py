@@ -40,12 +40,12 @@ class Storage:
 
     def duplicates(self):
         cur = self.con.cursor()
-        return cur.execute("SELECT COUNT(*), sha1, Name FROM Files GROUP BY \
+        return cur.execute("SELECT COUNT(*) Count, sha1, Name FROM Files GROUP BY \
                            sha1 HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC")
 
     def filenames(self, sha1):
         cur = self.con.cursor()
-        return cur.execute("SELECT sha1, Name FROM Files")
+        return cur.execute("SELECT sha1, Name FROM Files WHERE sha1 = ?", (sha1,))
 
     def __repr__(self):
         ret = ""
