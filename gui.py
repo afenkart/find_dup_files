@@ -39,18 +39,53 @@ class DuplicatesWalker(urwid.ListWalker):
             return (None, None)
         return self._get_at_pos((idx - 1, None))
 
+class DuplicatesDetailsWalker(urwid.ListWalker):
+    def __init__(self, sha1):
+        self.db = storage.Storage()
+        storage.build_test_corpus(self.db)
+        self.duplicates = self.db.filenames(sha1).fetchall()
+        self.focus = (0, self.duplicates[0])
+        for row in self.db.filenames('9db39b5c8b9eb70149801f8c9112c3ef50dcd562'):
+            f.write('__init__ %s %s\n' % (row['sha1'], row['Name']))
+        f.flush()
+
+    def _get_at_pos(self, focus):
+        (idx, invalid) = focus
+        cur = self.duplicates[idx]
+        text = urwid.Button("%d %s" % (idx, cur['Name']))
+        return urwid.AttrMap(text, 'edit', 'editfocus'), (idx, cur)
+
+    def get_focus(self): 
+        return self._get_at_pos(self.focus)
+
+    def set_focus(self, focus):
+        self.focus = focus
+        self._modified()
+ 
+    def get_next(self, focus):
+        (idx, elt) = focus
+        if idx >= len(self.duplicates) - 1:
+            return (None, None)
+        return self._get_at_pos((idx + 1, None))
+
+    def get_prev(self, focus):
+        (idx, elt) = focus
+        if (idx < 1):
+            return (None, None)
+        return self._get_at_pos((idx - 1, None))
 
 class Browse(urwid.WidgetWrap):
     def __init__(self, title, walker):
         self.walker = walker
-        self.listbox = urwid.ListBox(DuplicatesWalker())
+        self.listbox = urwid.ListBox(self.walker)
         self.frame = urwid.Frame( self.listbox)
-        urwid.WidgetWrap.__init__(self, self.frame) 
+        urwid.WidgetWrap.__init__(self, self.frame)
 
     def get_focus_label(self):
         (idx, elt) = self.walker.focus
         f.write('get_focus_label sha1: %s\n' % elt['sha1'])
-        return elt()
+        f.flush()
+        return elt
 
     def keypress(self, size, key):
         f.write('Browse keypress %s\n' % str(key))
@@ -83,14 +118,13 @@ class ShowItemChosen(urwid.Filler):
         else:
             return key
 
-
 def browse_into(widget, choice):
     f.write('browse_into %s\n' % choice)
     browse_stack.append(widget)
     if (len(browse_stack) > 1):
         main.original_widget = ShowItemChosen(choice)
     else:
-        main.original_widget = Browse(choice, answer[choice])
+        main.original_widget = Browse(choice, DuplicatesDetailsWalker(choice['sha1']))
 
 def browse_out():
     if (len(browse_stack) > 0):
