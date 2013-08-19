@@ -39,7 +39,7 @@ class DuplicatesWalker(urwid.ListWalker):
             return (None, None)
         return self._get_at_pos((idx - 1, None))
 
-class DuplicatesDetailsWalker(urwid.ListWalker):
+class DuplicatesDetailsWalker(DuplicatesWalker):
     def __init__(self, sha1):
         self.db = storage.Storage()
         storage.build_test_corpus(self.db)
@@ -55,24 +55,7 @@ class DuplicatesDetailsWalker(urwid.ListWalker):
         text = urwid.Button("%d %s" % (idx, cur['Name']))
         return urwid.AttrMap(text, 'edit', 'editfocus'), (idx, cur)
 
-    def get_focus(self): 
-        return self._get_at_pos(self.focus)
 
-    def set_focus(self, focus):
-        self.focus = focus
-        self._modified()
- 
-    def get_next(self, focus):
-        (idx, elt) = focus
-        if idx >= len(self.duplicates) - 1:
-            return (None, None)
-        return self._get_at_pos((idx + 1, None))
-
-    def get_prev(self, focus):
-        (idx, elt) = focus
-        if (idx < 1):
-            return (None, None)
-        return self._get_at_pos((idx - 1, None))
 
 class Browse(urwid.WidgetWrap):
     def __init__(self, title, walker):
