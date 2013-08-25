@@ -52,7 +52,14 @@ class DuplicatesDetailsWalker(DuplicatesWalker):
         button = urwid.Button("%d %s" % (idx, cur['Name']))
         return urwid.AttrMap(button, 'edit', 'editfocus'), (idx, cur)
 
+options = u'remove hard-link see'.split()
 
+def createChoicesWalker(cur):
+    body = [urwid.Text(cur['name']), urwid.Divider()]
+    for c in options:
+        button = urwid.Button(c)
+        body.append(urwid.AttrMap(button, None, focus_map='reversed'))
+    return urwid.SimpleFocusListWalker(body)
 
 
 class Browse(urwid.WidgetWrap):
@@ -98,10 +105,13 @@ class ShowItemChosen(urwid.Filler):
 def browse_into(widget, choice):
     f.write('browse_into %s\n' % choice)
     browse_stack.append(widget)
-    if (len(browse_stack) > 1):
-        main.original_widget = ShowItemChosen(choice)
-    else:
+    if (len(browse_stack) == 1):
         main.original_widget = Browse(choice, DuplicatesDetailsWalker(choice['sha1']))
+    elif (len(browse_stack) == 2):
+        main.original_widget = Browse(choice, createChoicesWalker(choice))
+    else:
+        f.write("no more levels\n")
+    f.flush()
 
 def browse_out():
     if (len(browse_stack) > 0):
@@ -130,8 +140,8 @@ palette = [
     ]
 
 top = urwid.Overlay(main, urwid.SolidFill(u'\N{MEDIUM SHADE}'),
-    align='center', width=('relative', 60),
-    valign='middle', height=('relative', 60),
+    align='center', width=('relative', 80),
+    valign='middle', height=('relative', 80),
     min_width=20, min_height=9)
 urwid.MainLoop(top, palette, unhandled_input=unhandled_input).run()
 #loop = urwid.MainLoop(fill, unhandled_input=show_or_exit)
