@@ -7,12 +7,17 @@ import string
 class Storage:
     def __init__(self):
         #self.con = lite.connect('files.db')
-        self.con = lite.connect(':memory:')
+    def __init__(self, memory):
+        if memory:
+            self.con = lite.connect(':memory:')
+            create_db()
+        else:
+            self.con = lite.connect('files.db')
         self.con.row_factory = lite.Row
         #self.con.text_factory = str
+
+    def recreate(self):
         self.create_db()
-        self.sha1_hash = {}
-        self.files = []
 
     def create_db(self):
         cur = self.con.cursor()
@@ -30,10 +35,6 @@ class Storage:
             print "Error %s: name: %s" % (e.args[0], name)
             self.con.rollback()
 
-    def all_rows(self):
-        cur = self.con.cursor()
-        return cur.execute("SELECT * FROM Files")
-
     def dump(self):
         for line in self.con.iterdump():
             print line
@@ -47,15 +48,6 @@ class Storage:
         cur = self.con.cursor()
         return cur.execute("SELECT sha1, Name FROM Files WHERE sha1 = ?", (sha1,))
 
-    def __repr__(self):
-        ret = ""
-        for (sha1, name) in self.files:
-            ret += sha1 + "|" + name + "\n"
-
-        for (sha1) in self.sha1_hash:
-            ret += sha1 + "|%d\n" % self.sha1_hash[sha1]
-
-        return ret
 
 def build_test_corpus(db):
     print "test_corpus"
@@ -69,7 +61,7 @@ def build_test_corpus(db):
 
 
 if __name__ == "__main__":
-    db = Storage()
+    db = Storage(memory=True)
     build_test_corpus(db)
     #print db
     #print len(db.all_rows())
@@ -81,4 +73,3 @@ if __name__ == "__main__":
     print "\nfiles for one sha1"
     for row in db.filenames('9db39b5c8b9eb70149801f8c9112c3ef50dcd562'):
         print row
-

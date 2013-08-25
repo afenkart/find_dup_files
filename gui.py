@@ -9,8 +9,8 @@ browse_stack = []
 
 class DuplicatesWalker(urwid.ListWalker):
     def __init__(self):
-        self.db = storage.Storage()
-        storage.build_test_corpus(self.db)
+        self.db = storage.Storage(memory=False)
+#        storage.build_test_corpus(self.db)
         self.duplicates = self.db.duplicates().fetchall()
         self.focus = (0, self.duplicates[0])
 
@@ -41,13 +41,10 @@ class DuplicatesWalker(urwid.ListWalker):
 
 class DuplicatesDetailsWalker(DuplicatesWalker):
     def __init__(self, sha1):
-        self.db = storage.Storage()
-        storage.build_test_corpus(self.db)
+        self.db = storage.Storage(memory=False)
+        #storage.build_test_corpus(self.db)
         self.duplicates = self.db.filenames(sha1).fetchall()
         self.focus = (0, self.duplicates[0])
-        for row in self.db.filenames('9db39b5c8b9eb70149801f8c9112c3ef50dcd562'):
-            f.write('__init__ %s %s\n' % (row['sha1'], row['Name']))
-        f.flush()
 
     def _get_at_pos(self, focus):
         (idx, invalid) = focus
