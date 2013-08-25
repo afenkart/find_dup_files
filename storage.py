@@ -5,8 +5,6 @@ import subprocess
 import string
 
 class Storage:
-    def __init__(self):
-        #self.con = lite.connect('files.db')
     def __init__(self, memory):
         if memory:
             self.con = lite.connect(':memory:')
