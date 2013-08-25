@@ -39,21 +39,37 @@ class DuplicatesWalker(urwid.ListWalker):
             return (None, None)
         return self._get_at_pos((idx - 1, None))
 
-class DuplicatesDetailsWalker(DuplicatesWalker):
+class DuplicatesDetailsWalker(urwid.ListWalker):
     def __init__(self, sha1):
         self.db = storage.Storage(memory=False)
         #storage.build_test_corpus(self.db)
         self.duplicates = self.db.filenames(sha1).fetchall()
         self.focus = (0, self.duplicates[0])
 
-    def _get_at_pos(self, focus):
-        (idx, invalid) = focus
+    def set_focus(self, focus):
+        self.focus = focus
+        self._modified()
+
+    def next_position(self, position):
+        (idx, cur) = position
+        if idx >= len(self.duplicates) - 1:
+            raise IndexError
+        return (idx + 1, self.duplicates[idx + 1])
+
+    def prev_position(self, position):
+        (idx, elt) = position
+        if (idx < 1):
+            raise IndexError
+        return (idx - 1, self.duplicates[idx - 1])
+
+    def __getitem__(self, focus):
+        (idx, ignore) = focus
         cur = self.duplicates[idx]
         button = urwid.Button("%d %s" % (idx, cur['Name']))
-        return urwid.AttrMap(button, 'edit', 'editfocus'), (idx, cur)
+        return = urwid.AttrMap(button, 'edit', 'editfocus')
+
 
 options = u'remove hard-link see'.split()
-
 def createChoicesWalker(cur):
     body = [urwid.Text(cur['name']), urwid.Divider()]
     for c in options:
