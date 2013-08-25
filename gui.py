@@ -17,8 +17,8 @@ class DuplicatesWalker(urwid.ListWalker):
     def _get_at_pos(self, focus):
         (idx, invalid) = focus
         cur = self.duplicates[idx]
-        text = urwid.Button("%d %d %s" % (idx, cur['Count'], cur['Name']))
-        return urwid.AttrMap(text, 'edit', 'editfocus'), (idx, cur)
+        button = urwid.Button("%d %d %s" % (idx, cur['Count'], cur['Name']))
+        return urwid.AttrMap(button, 'edit', 'editfocus'), (idx, cur)
 
     def get_focus(self): 
         return self._get_at_pos(self.focus)
@@ -49,8 +49,9 @@ class DuplicatesDetailsWalker(DuplicatesWalker):
     def _get_at_pos(self, focus):
         (idx, invalid) = focus
         cur = self.duplicates[idx]
-        text = urwid.Button("%d %s" % (idx, cur['Name']))
-        return urwid.AttrMap(text, 'edit', 'editfocus'), (idx, cur)
+        button = urwid.Button("%d %s" % (idx, cur['Name']))
+        return urwid.AttrMap(button, 'edit', 'editfocus'), (idx, cur)
+
 
 
 
@@ -71,16 +72,12 @@ class Browse(urwid.WidgetWrap):
         f.write('Browse keypress %s\n' % str(key))
         f.flush()
         print "browse stack %d" % len(browse_stack)
-        if key == 'right':
+        if key == 'right' or key == 'enter':
             browse_into(self, self.get_focus_label())
         elif key == 'left':
             browse_out();
         else:
             return self.frame.keypress(size, key)
-
-    def item_chosen(self, button, choice):
-        print "pass"
-        browse_into(self, choice)
 
 class ShowItemChosen(urwid.Filler):
     def __init__(self, choice):
