@@ -8,7 +8,6 @@ class Storage:
     def __init__(self, memory):
         if memory:
             self.con = lite.connect(':memory:')
-            create_db()
         else:
             self.con = lite.connect('files.db')
         self.con.row_factory = lite.Row
@@ -37,6 +36,7 @@ class Storage:
         for line in self.con.iterdump():
             print line
 
+    # TODO duplicate_keys
     def duplicates(self):
         cur = self.con.cursor()
         return cur.execute("SELECT COUNT(*) Count, sha1, Name FROM Files GROUP BY \
@@ -45,6 +45,16 @@ class Storage:
     def filenames(self, sha1):
         cur = self.con.cursor()
         return cur.execute("SELECT sha1, Name FROM Files WHERE sha1 = ?", (sha1,))
+
+    def remove(self, sha1, name):
+        try:
+            cur = self.con.cursor()
+            cur.execute("DELETE FROM Files WHERE sha1 = ? and Name = ?", (sha1, name))
+            self.con.commit();
+        except lite.Error, e:
+            print "Error %s: name: %s" % (e.args[0], name)
+            self.con.rollback()
+
 
 
 def build_test_corpus(db):
@@ -64,6 +74,7 @@ def build_test_corpus(db):
 
 if __name__ == "__main__":
     db = Storage(memory=True)
+    db.recreate()
     build_test_corpus(db)
     #print db
     #print len(db.all_rows())
@@ -73,5 +84,10 @@ if __name__ == "__main__":
         print row
 
     print "\nfiles for one sha1"
+    for row in db.filenames('9db39b5c8b9eb70149801f8c9112c3ef50dcd562'):
+        print row
+
+    print "\nremove one of above"
+    db.remove('9db39b5c8b9eb70149801f8c9112c3ef50dcd562', '_na_prehradu/IM.jpg')
     for row in db.filenames('9db39b5c8b9eb70149801f8c9112c3ef50dcd562'):
         print row
