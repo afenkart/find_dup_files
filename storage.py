@@ -20,16 +20,16 @@ class Storage:
     def create_db(self):
         cur = self.con.cursor()
         cur.execute("DROP TABLE IF EXISTS Files")
-        cur.execute("CREATE TABLE Files(SHA1 TEXT, Name TEXT)")
+        cur.execute("CREATE TABLE Files(id INTEGER PRIMARY KEY, SHA1 TEXT, Name TEXT)")
         self.con.commit();
-
 
     def add_file(self, sha1, name):
         try:
             cur = self.con.cursor()
-            cur.execute("INSERT INTO Files VALUES(?, ?)", (sha1, name))
+            cur.execute("INSERT INTO Files VALUES(NULL, ?, ?)", (sha1, name.decode('utf-8')))
             self.con.commit();
         except lite.Error, e:
+            print "type", type(name)
             print "Error %s: name: %s" % (e.args[0], name)
             self.con.rollback()
 
@@ -56,6 +56,10 @@ def build_test_corpus(db):
     db.add_file('881d34fd4fc2d55af571e9f8c587108bf4d45ea2','cii_Empik_hleda_Foxika/P1080538.jpg')
     db.add_file('881d34fd4fc2d55af571e9f8c587108bf4d45ea2','i_Empik_hleda_Foxika/P1080538.jpg')
     db.add_file('881d34fd4fc2d55af571e9f8c587108bf4d45ea5','i_E_Foxika/P1080538.jpg')
+    db.add_file('881d34fd4fc2d55af571e9f8c587108bf4d45ea2','i_Empik_hledaFika/P1080538.jpg')
+    db.add_file('881d34fd4fc2d55af571e9f8c587108bf4d45ea2','i_Empik_hledaFika/P1080538.jpg')
+    db.add_file('881d34fd4fc2d55af571e9f8c587108bf4d45ea5','i_Foxika/P15038.jpg')
+    db.add_file('881d34fd4fc2d55af571e9f8c587108bf4d45ea5','i_Eoxika/P15038.jpg')
 
 
 if __name__ == "__main__":

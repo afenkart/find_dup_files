@@ -1,9 +1,11 @@
 #!/usr/bin/env python
+from storage import *
+
 import sqlite3 as lite
 import sys, os
 import subprocess
 import string
-from storage import *
+import md5
 
 
 db = Storage(memory=False)
