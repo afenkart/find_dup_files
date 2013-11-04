@@ -3,6 +3,7 @@ import sqlite3 as lite
 import sys, os
 import subprocess
 import string
+import traceback
 
 class Storage:
     def __init__(self, memory):
@@ -31,6 +32,11 @@ class Storage:
             print "type", type(name)
             print "Error %s: name: %s" % (e.args[0], name)
             self.con.rollback()
+        except UnicodeDecodeError, e:
+            print traceback.format_exc()
+            print name
+
+
 
     def dump(self):
         for line in self.con.iterdump():
