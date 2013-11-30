@@ -79,5 +79,5 @@ def list_duplicates():
 
 if __name__ == "__main__":
     #f_spot()
-    dup_1_do()
-    #list_duplicates()
+    #dup_1_do()
+    list_duplicates()
