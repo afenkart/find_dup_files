@@ -40,9 +40,33 @@ class FindFiles:
         self.problem_files = []
         self.log = logging.getLogger("FindFiles")
 
+    def process_inode(self, _stat, full_name):
+        """
+        Check if inode is already indexed, or mtime has changed
+        """
+        log = self.log
+        hard_link = DB.lookup_inode(_stat.st_dev, _stat.st_ino)
+
+        if hard_link:
+            mtime = hard_link['st_mtime']
+
+            if mtime == _stat.st_mtime:
+                log.info("hard link %s mtime %r valid, skip...", full_name, mtime)
+                return
+            else:
+                log.info("hard link %s mtime %r changed, reindex...", full_name, mtime)
+
+        try:
+            _sha1 = sha1(full_name)
+            DB.add_inode(_stat.st_dev, _stat.st_ino, _stat.st_mtime, _sha1)
+        except subprocess.CalledProcessError:
+            print "problem file", full_name
+            self.problem_files.append(full_name)
+
+
     def visit(self, full_name):
         """
-        Index file and add to database
+        Check regular file and add to database
         """
         log = self.log
 
@@ -72,6 +96,7 @@ class FindFiles:
         try:
             _sha1 = sha1(full_name)
             DB.add_file(_sha1, full_name)
+            self.process_inode(_stat, full_name)
         except subprocess.CalledProcessError:
             print "problem file", full_name
             self.problem_files.append(full_name)
@@ -101,8 +126,8 @@ def unit_test():
     sha1('/etc/passwd')
     try:
         sha1('000_unit_test_not_exist')
-    except subprocess.CalledProcessError:
-        print traceback.format_exc()
+    except subprocess.CalledProcessError, e:
+        print e
 
     try:
         os.unlink('test-files/test-socket')
@@ -113,6 +138,9 @@ def unit_test():
     __ITER__.search('./test-files')
     sock.close()
     os.unlink('test-files/test-socket')
+
+    os.system("echo a > test-files/hard_link1.txt")
+    __ITER__.search('./test-files')
 
 unit_test()
 

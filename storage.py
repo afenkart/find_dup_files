@@ -20,7 +20,11 @@ class Storage:
     def create_db(self):
         cur = self.con.cursor()
         cur.execute("DROP TABLE IF EXISTS Files")
+        cur.execute("DROP TABLE IF EXISTS Inodes")
         cur.execute("CREATE TABLE Files(id INTEGER PRIMARY KEY, SHA1 TEXT, Name TEXT)")
+        # TODO st_dev/st_ino shall be primary key
+        cur.execute("CREATE TABLE Inodes(id INTEGER PRIMARY KEY, st_dev INTEGER, \
+                    st_inode INTEGER, st_mtime, SHA1 Text)")
         self.con.commit();
 
     def add_file(self, sha1, name):
@@ -36,6 +40,27 @@ class Storage:
             print traceback.format_exc()
             print name
 
+
+    def lookup_inode(self, dev, inode):
+        cur = self.con.cursor()
+        cur.execute("SELECT * FROM Inodes where st_dev = ? and st_inode = ?",
+                           (dev, inode))
+        return cur.fetchone()
+
+    def add_inode(self, dev, inode, mtime, sha1):
+        try:
+            cur = self.con.cursor()
+            if self.lookup_inode(dev, inode):
+                cur.execute("UPDATE Inodes SET st_mtime = ?, sha1 = ? WHERE \
+                            st_dev = ? and st_inode = ?", (mtime, sha1, dev, inode))
+            else:
+                cur.execute("INSERT INTO Inodes VALUES(NULL, ?, ?, ?, ?)",
+                            (dev, inode, mtime, sha1))
+            self.con.commit();
+        except lite.Error, e:
+            print "Error %s: inode: %s--" % (e.args[0], inode)
+            self.con.rollback()
+            return False
 
 
     def dump(self):
