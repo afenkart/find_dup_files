@@ -1,16 +1,12 @@
 #!/usr/bin/env python
-from storage import *
 
-import sqlite3 as lite
-import sys, os, stat
-import socket
+import os, stat
 import subprocess
-import string
-import md5
 import traceback
 import socket
 import logging
 
+from storage import Storage
 
 TIMESTMP_FMT = ("%H:%M:%S") # no %f for msecs
 FORMAT = '%(asctime)s.%(msecs)03d %(name)-5s %(message)s'
@@ -22,56 +18,62 @@ db.recreate()
 
 visit_log = open('visit.log', 'w', buffering = 0)
 
+
 class FindFiles:
-    log = logging.getLogger("FindFiles")
+    def __init__(self):
+        self.problem_files = []
+        self.log = logging.getLogger("FindFiles")
 
     def sha1(self, name):
         ret = subprocess.check_output(["/usr/bin/sha1sum", name],
                                      stderr=subprocess.STDOUT)
-        return ret.split()[0];
+        return ret.split()[0]
 
-
-    def visit(self, path):
+    def visit(self, full_name):
         log = self.log
-        problem_files = []
+
+        if os.path.islink(full_name):
+            # if link is invalid os.stat fails
+            log.info("ignore symbolic link: %s" % full_name)
+            return
+
+        _stat = os.stat(full_name)
+        if stat.S_ISSOCK(_stat.st_mode):
+            log.info("ignore socket: %s", full_name)
+            return
+        elif stat.S_ISCHR(_stat.st_mode):
+            log.info("ignore character special device file: %s" % full_name)
+            return
+        elif stat.S_ISBLK(_stat.st_mode):
+            log.info("ignore block special device file: %s" % full_name)
+            return
+        elif stat.S_ISFIFO(_stat.st_mode):
+            log.info("ignore FIFO (named pipe): %s" % full_name)
+            return
+        elif stat.S_ISLNK(_stat.st_mode):
+            log.info("ignore symbolic link: %s" % full_name)
+            return
+        assert(stat.S_ISREG(_stat.st_mode))
+
+        try:
+            _sha1 = self.sha1(full_name)
+            db.add_file(_sha1, full_name)
+        except subprocess.CalledProcessError:
+            print "problem file", full_name
+            problem_files.append(full_name)
+
+    def search(self, path):
         for root, dirs, files in os.walk(path):
             if '.git' in dirs:
                 dirs.remove('.git')
             if '.svn' in dirs:
                 dirs.remove('.svn')
+
             for f in files:
                 visit_log.write(("%s/%s\n" % (root, f)))
-                full = os.path.join(root, f)
+                full_name = os.path.join(root, f)
+                self.visit(full_name)
 
-                if os.path.islink(full):
-                    # if link is invalid os.stat fails
-                    log.info("ignore symbolic link: %s" % full)
-                    continue
-
-                mode = os.stat(full).st_mode
-                if stat.S_ISSOCK(mode):
-                    log.info("ignore socket: %s", full)
-                    continue
-                elif stat.S_ISCHR(mode):
-                    log.info("ignore character special device file: %s" % full)
-                    continue
-                elif stat.S_ISBLK(mode):
-                    log.info("ignore block special device file: %s" % full)
-                    continue
-                elif stat.S_ISFIFO(mode):
-                    log.info("ignore FIFO (named pipe): %s" % full)
-                    continue
-                elif stat.S_ISLNK(mode):
-                    log.info("ignore symbolic link: %s" % full)
-                    continue
-                assert(stat.S_ISREG(mode))
-
-                try:
-                    sha1 = self.sha1(full)
-                    db.add_file(sha1, full)
-                except subprocess.CalledProcessError, e:
-                    print "problem file", full
-                    problem_files.append(full)
 
 find = FindFiles()
 
@@ -79,7 +81,7 @@ def unit_test():
     find.sha1('/etc/passwd')
     try:
         find.sha1('000_unit_test_not_exist')
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError:
         print traceback.format_exc()
 
     try:
@@ -88,14 +90,14 @@ def unit_test():
         pass
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind('test-files/test-socket')
-    find.visit('./test-files')
+    find.search('./test-files')
     sock.close()
     os.unlink('test-files/test-socket')
 
 unit_test()
 
 
-problem_files = find.visit('/home/afenkart')
+problem_files = find.search('/home/afenkart')
 
 
 print "\nduplicate keys:"
