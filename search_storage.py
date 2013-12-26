@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 
+"""
+Index files in subfolder
+"""
+
+
 import os, stat
 import subprocess
 import traceback
@@ -12,24 +17,33 @@ TIMESTMP_FMT = ("%H:%M:%S") # no %f for msecs
 FORMAT = '%(asctime)s.%(msecs)03d %(name)-5s %(message)s'
 logging.basicConfig(format=FORMAT, datefmt=TIMESTMP_FMT, level=logging.INFO)
 
+DB = Storage(memory=False)
+DB.recreate()
 
-db = Storage(memory=False)
-db.recreate()
+VISIT_LOG = open('visit.log', 'w', buffering = 0)
 
-visit_log = open('visit.log', 'w', buffering = 0)
+def sha1(name):
+    """
+    Does not belong here
+    """
+    log = logging.getLogger("sha1")
+    ret = subprocess.check_output(["/usr/bin/sha1sum", name],
+                                 stderr=subprocess.STDOUT)
+    return str(ret).split(' ')[0]
 
 
 class FindFiles:
+    """
+    Class FindFiles
+    """
     def __init__(self):
         self.problem_files = []
         self.log = logging.getLogger("FindFiles")
 
-    def sha1(self, name):
-        ret = subprocess.check_output(["/usr/bin/sha1sum", name],
-                                     stderr=subprocess.STDOUT)
-        return ret.split()[0]
-
     def visit(self, full_name):
+        """
+        Index file and add to database
+        """
         log = self.log
 
         if os.path.islink(full_name):
@@ -56,59 +70,65 @@ class FindFiles:
         assert(stat.S_ISREG(_stat.st_mode))
 
         try:
-            _sha1 = self.sha1(full_name)
-            db.add_file(_sha1, full_name)
+            _sha1 = sha1(full_name)
+            DB.add_file(_sha1, full_name)
         except subprocess.CalledProcessError:
             print "problem file", full_name
-            problem_files.append(full_name)
+            self.problem_files.append(full_name)
 
     def search(self, path):
+        """
+        Search folder
+        """
         for root, dirs, files in os.walk(path):
             if '.git' in dirs:
                 dirs.remove('.git')
             if '.svn' in dirs:
                 dirs.remove('.svn')
 
-            for f in files:
-                visit_log.write(("%s/%s\n" % (root, f)))
-                full_name = os.path.join(root, f)
+            for fna in files:
+                VISIT_LOG.write(("%s/%s\n" % (root, fna)))
+                full_name = os.path.join(root, fna)
                 self.visit(full_name)
 
 
-find = FindFiles()
+__ITER__ = FindFiles()
 
 def unit_test():
-    find.sha1('/etc/passwd')
+    """
+    Common errors, special files
+    """
+    sha1('/etc/passwd')
     try:
-        find.sha1('000_unit_test_not_exist')
+        sha1('000_unit_test_not_exist')
     except subprocess.CalledProcessError:
         print traceback.format_exc()
 
     try:
         os.unlink('test-files/test-socket')
-    except Exception:
+    except OSError:
         pass
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind('test-files/test-socket')
-    find.search('./test-files')
+    __ITER__.search('./test-files')
     sock.close()
     os.unlink('test-files/test-socket')
 
 unit_test()
 
 
-problem_files = find.search('/home/afenkart')
+PROBLEM_FILES = __ITER__.search('/home/afenkart')
 
 
 print "\nduplicate keys:"
-for f in db.duplicates():
+for f in DB.duplicates():
     sha1 = f['sha1']
     print sha1
-    for g in db.filenames(sha1):
+    for g in DB.filenames(sha1):
         print "\t", g
 
 print "\nproblem files:"
-for f in problem_files:
+for f in PROBLEM_FILES:
     print f
 
 
