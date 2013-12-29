@@ -11,13 +11,13 @@ FORMAT = '%(asctime)s.%(msecs)03d %(name)-5s %(message)s'
 logging.basicConfig(format=FORMAT, datefmt=TIMESTMP_FMT, level=logging.INFO)
 
 class Storage:
-    def __init__(self, memory):
+    def __init__(self, memory, filename = "files.db"):
         self.log = logging.getLogger("Storage")
 
         if memory:
             self.con = lite.connect(':memory:')
         else:
-            self.con = lite.connect('files.db')
+            self.con = lite.connect(filename)
         self.con.row_factory = lite.Row
         #self.con.text_factory = str
 
@@ -32,7 +32,7 @@ class Storage:
                     st_dev INTEGER, st_inode INTEGER, SHA1 Text)")
         # TODO st_dev/st_ino shall be primary key
         cur.execute("CREATE TABLE Inodes(id INTEGER PRIMARY KEY, st_dev INTEGER, \
-                    st_inode INTEGER, st_mtime, SHA1 Text)")
+                    st_inode INTEGER, st_mtime FLOAT, SHA1 Text)")
         self.con.commit();
 
     def add_file(self, name, dev, inode, _sha1):
@@ -84,21 +84,36 @@ class Storage:
             print line
 
     # TODO duplicate_keys
-    def duplicates(self):
+    def duplicates(self): # filter by size / number of duplicates
         cur = self.con.cursor()
+        cur.execute("DROP TABLE IF EXISTS Duplicates")
+        cur.execute("DROP TABLE IF EXISTS Tmp")
+        cur.execute("CREATE TABLE Tmp(sha1 INTEGER, count INTEGER)")
+        cur.execute("CREATE TABLE Duplicates (st_dev INTEGER, st_inode INTEGER, \
+                    count INTEGER)")
         # Inodes contains no hard links, returns real double disk usage
-        return cur.execute("SELECT COUNT(*) Count, sha1, st_dev, st_inode \
-                           FROM Inodes \
-                           GROUP BY sha1 \
-                           HAVING COUNT(*) > 1 \
-                           ORDER BY COUNT(*) DESC")
+        cur.execute("INSERT INTO Tmp(sha1, count) \
+                     SELECT sha1, COUNT(*) Count \
+                     FROM Inodes \
+                     GROUP BY sha1 \
+                     HAVING COUNT(*) > 1 \
+                     ORDER BY COUNT(*) DESC")
+        cur.execute("INSERT INTO Duplicates(st_dev, st_inode, count) \
+                     SELECT st_dev, st_inode, tmp.Count \
+                     FROM Inodes \
+                     JOIN Tmp \
+                     ON Inodes.sha1=Tmp.sha1")
 
-    def filenames(self, sha1):
-        cur = self.con.cursor()
-        return cur.execute("SELECT Files.sha1, Files.st_dev, Files.st_inode, Files.Name  \
+        return cur.execute("SELECT Duplicates.count, Inodes.sha1, Files.st_dev, \
+                             Files.st_inode, Files.Name  \
                            FROM Files \
-                           WHERE Files.sha1 = ? \
-                           ORDER BY sha1, st_dev, st_inode", (sha1,))
+                           JOIN Duplicates \
+                           ON Files.st_dev=Duplicates.st_dev AND \
+                              Files.st_inode = Duplicates.st_inode \
+                           JOIN Inodes \
+                           ON Files.st_dev=Inodes.st_dev AND \
+                              Files.st_inode = Inodes.st_inode \
+                           ORDER BY Duplicates.count, Files.Name")
 
     def remove(self, sha1, name):
         try:

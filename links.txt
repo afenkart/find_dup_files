@@ -2,6 +2,7 @@
 [sqlite]
 http://zetcode.com/db/sqlitepythontutorial/
 http://blog.sqlauthority.com/2007/07/11/sql-server-count-duplicate-records-rows/
+http://www.w3schools.com/sql/sql_groupby.asp
 
 [urwid]
 http://www.pyvideo.org/video/1568/console-applications-with-urwid

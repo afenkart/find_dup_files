@@ -123,11 +123,8 @@ def print_duplicates(dbs):
     """
     Print duplicates with filename
     """
-    #TODO do not iterate but let sqlite do an left/inner/outer join
     for row in dbs.duplicates():
         print row
-        for ggg in dbs.filenames(row['sha1']):
-            print "\t", ggg
 
 def unit_test():
     """
