@@ -51,7 +51,7 @@ class FindFiles:
             mtime = hard_link['st_mtime']
 
             if mtime == _stat.st_mtime:
-                log.info("hard link %s mtime %r valid, skip...", full_name, mtime)
+                log.debug("hard link %s mtime %r valid, skip...", full_name, mtime)
                 return
             else:
                 log.info("hard link %s mtime %r changed, reindex...", full_name, mtime)
@@ -93,10 +93,10 @@ class FindFiles:
             return
         assert(stat.S_ISREG(_stat.st_mode))
 
+
         try:
-            _sha1 = sha1(full_name)
-            DB.add_file(_sha1, full_name)
             self.process_inode(_stat, full_name)
+            DB.add_file(full_name, _stat.st_dev, _stat.st_ino)
         except subprocess.CalledProcessError:
             print "problem file", full_name
             self.problem_files.append(full_name)
@@ -140,10 +140,18 @@ def unit_test():
     os.unlink('test-files/test-socket')
 
     os.system("echo a > test-files/hard_link1.txt")
+    os.system("cp test-files/hard_link1.txt test-files/copy_hard_link1.txt")
     __ITER__.search('./test-files')
+
+    print "\nduplicate keys:"
+    for row in DB.duplicates():
+        for g in DB.filenames(row['st_dev'], row['st_inode']):
+            print "\t", g
 
 unit_test()
 
+
+os.abort()
 
 PROBLEM_FILES = __ITER__.search('/home/afenkart')
 
