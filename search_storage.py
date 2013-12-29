@@ -7,7 +7,6 @@ Index files in subfolder
 
 import os, stat
 import subprocess
-import traceback
 import socket
 import logging
 
@@ -17,16 +16,12 @@ TIMESTMP_FMT = ("%H:%M:%S") # no %f for msecs
 FORMAT = '%(asctime)s.%(msecs)03d %(name)-5s %(message)s'
 logging.basicConfig(format=FORMAT, datefmt=TIMESTMP_FMT, level=logging.INFO)
 
-DB = Storage(memory=False)
-DB.recreate()
-
 VISIT_LOG = open('visit.log', 'w', buffering = 0)
 
 def sha1(name):
     """
     Does not belong here
     """
-    log = logging.getLogger("sha1")
     ret = subprocess.check_output(["/usr/bin/sha1sum", name],
                                  stderr=subprocess.STDOUT)
     return str(ret).split(' ')[0]
@@ -36,9 +31,10 @@ class FindFiles:
     """
     Class FindFiles
     """
-    def __init__(self):
+    def __init__(self, dbs):
         self.problem_files = []
         self.log = logging.getLogger("FindFiles")
+        self.dbs = dbs
 
     def process_inode(self, _stat, full_name):
         """
@@ -46,20 +42,23 @@ class FindFiles:
         otherwise calculate sha1 and update
         """
         log = self.log
-        hard_link = DB.lookup_inode(_stat.st_dev, _stat.st_ino)
+        dbs = self.dbs
+        hard_link = dbs.lookup_inode(_stat.st_dev, _stat.st_ino)
 
         if hard_link:
             mtime = hard_link['st_mtime']
 
             if mtime == _stat.st_mtime:
-                log.debug("hard link %s mtime %r valid, skip...", full_name, mtime)
+                log.debug("hard link %s mtime %r valid, skip...", full_name,
+                          mtime)
                 return hard_link['sha1']
             else:
-                log.info("hard link %s mtime %r changed, reindex...", full_name, mtime)
+                log.info("hard link %s mtime %r changed, reindex...", full_name,
+                         mtime)
 
         try:
             _sha1 = sha1(full_name)
-            DB.add_inode(_stat.st_dev, _stat.st_ino, _stat.st_mtime, _sha1)
+            dbs.add_inode(_stat.st_dev, _stat.st_ino, _stat.st_mtime, _sha1)
             return _sha1
         except subprocess.CalledProcessError:
             print "problem file", full_name
@@ -71,6 +70,7 @@ class FindFiles:
         Check regular file and add to database
         """
         log = self.log
+        dbs = self.dbs
 
         if os.path.islink(full_name):
             # if link is invalid os.stat fails
@@ -98,7 +98,7 @@ class FindFiles:
 
         try:
             _sha1 = self.process_inode(_stat, full_name)
-            DB.add_file(full_name, _stat.st_dev, _stat.st_ino, _sha1)
+            dbs.add_file(full_name, _stat.st_dev, _stat.st_ino, _sha1)
         except subprocess.CalledProcessError:
             print "problem file", full_name
             self.problem_files.append(full_name)
@@ -119,18 +119,31 @@ class FindFiles:
                 self.visit(full_name)
 
 
-__ITER__ = FindFiles()
+def print_duplicates(dbs):
+    """
+    Print duplicates with filename
+    """
+    #TODO do not iterate but let sqlite do an left/inner/outer join
+    for row in dbs.duplicates():
+        print row
+        for ggg in dbs.filenames(row['sha1']):
+            print "\t", ggg
 
 def unit_test():
     """
     Common errors, special files
+    ff
     """
-    log = logging.getLogger("UnitTest")
     sha1('/etc/passwd')
     try:
         sha1('000_unit_test_not_exist')
-    except subprocess.CalledProcessError, e:
-        print e
+    except subprocess.CalledProcessError, err:
+        print err
+
+    dbm = Storage(memory=True)
+    dbm.recreate()
+
+    _iter = FindFiles(dbm)
 
     try:
         os.unlink('test-files/test-socket')
@@ -138,38 +151,38 @@ def unit_test():
         pass
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind('test-files/test-socket')
-    __ITER__.search('./test-files')
+    _iter.search('./test-files')
     sock.close()
     os.unlink('test-files/test-socket')
 
     os.system("echo a > test-files/hard_link1.txt")
     os.system("cp test-files/hard_link1.txt test-files/copy_hard_link1.txt")
-    __ITER__.search('./test-files')
+    _iter.search('./test-files')
     os.unlink("test-files/copy_hard_link1.txt")
 
     print "\nduplicate keys:"
-    for row in DB.duplicates():
-        print row
-        for g in DB.filenames(row['sha1']):
-            print "\t", g
-
-unit_test()
+    print_duplicates(dbm)
 
 
-#os.abort()
-
-PROBLEM_FILES = __ITER__.search('/home/afenkart')
 
 
-print "\nduplicate keys:"
-for row in DB.duplicates():
-    print row
-    for g in DB.filenames(row['sha1']):
-        print "\t", g
+if __name__ == "__main__":
 
-print "\nproblem files:"
-for f in PROBLEM_FILES:
-    print f
+    unit_test()
+    #os.abort()
 
 
-#if __name__ == "__main__"
+    DB2 = Storage(memory=False)
+    #DB2.recreate()
+
+    __ITER__ = FindFiles(DB2)
+    PROBLEM_FILES = __ITER__.search('/home/afenkart')
+
+    print "\nduplicate keys:"
+    print_duplicates(DB2)
+
+    print "\nproblem files:"
+    for f in PROBLEM_FILES:
+        print f
+
+
