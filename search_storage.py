@@ -36,7 +36,7 @@ class FindFiles:
         self.log = logging.getLogger("FindFiles")
         self.dbs = dbs
 
-    def process_inode(self, _stat, full_name):
+    def visit_inode(self, _stat, full_name):
         """
         Check if inode is already indexed, or mtime has changed
         otherwise calculate sha1 and update
@@ -51,15 +51,17 @@ class FindFiles:
             if mtime == _stat.st_mtime:
                 log.debug("hard link %s mtime %r valid, skip...", full_name,
                           mtime)
-                return hard_link['sha1']
+                return
             else:
                 log.info("hard link %s mtime %r changed, reindex...", full_name,
                          mtime)
 
         try:
             _sha1 = sha1(full_name)
-            dbs.add_inode(_stat.st_dev, _stat.st_ino, _stat.st_mtime, _sha1)
-            return _sha1
+            # stat.n_link
+            dbs.add_inode(_stat.st_dev, _stat.st_ino, _stat.st_mtime,
+                          _stat.st_size, _sha1)
+            return
         except subprocess.CalledProcessError:
             print "problem file", full_name
             self.problem_files.append(full_name)
@@ -97,8 +99,8 @@ class FindFiles:
 
 
         try:
-            _sha1 = self.process_inode(_stat, full_name)
-            dbs.add_file(full_name, _stat.st_dev, _stat.st_ino, _sha1)
+            self.visit_inode(_stat, full_name)
+            dbs.add_file(full_name, _stat.st_dev, _stat.st_ino)
         except subprocess.CalledProcessError:
             print "problem file", full_name
             self.problem_files.append(full_name)

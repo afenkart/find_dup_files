@@ -29,22 +29,23 @@ class Storage:
         cur.execute("DROP TABLE IF EXISTS Files")
         cur.execute("DROP TABLE IF EXISTS Inodes")
         cur.execute("CREATE TABLE Files(id INTEGER PRIMARY KEY, name TEXT, \
-                    st_dev INTEGER, st_inode INTEGER, SHA1 Text)")
+                    st_dev INTEGER, st_inode INTEGER)")
         # TODO st_dev/st_ino shall be primary key
-        cur.execute("CREATE TABLE Inodes(id INTEGER PRIMARY KEY, st_dev INTEGER, \
-                    st_inode INTEGER, st_mtime FLOAT, SHA1 Text)")
+        cur.execute("CREATE TABLE Inodes(id INTEGER PRIMARY KEY, \
+                    st_dev INTEGER, st_inode INTEGER, st_mtime FLOAT, \
+                    st_size INTEGER, CRC32 Text, SHA1 Text)")
         self.con.commit();
 
-    def add_file(self, name, dev, inode, _sha1):
+    def add_file(self, name, dev, inode):
         log = self.log
         try:
             cur = self.con.cursor()
-            cur.execute("SELECT * FROM Files WHERE name = ? and st_dev = ? and st_inode = ?",
-                        (name.decode('utf-8'), dev, inode))
+            cur.execute("SELECT * FROM Files WHERE name = ? AND st_dev = ? AND \
+                        st_inode = ?", (name.decode('utf-8'), dev, inode))
             if not cur.fetchone():
                 log.debug("Adding file name %r", name)
-                cur.execute("INSERT INTO Files VALUES(NULL, ?, ?, ?, ?)",
-                        (name.decode('utf-8'), dev, inode, _sha1))
+                cur.execute("INSERT INTO Files VALUES(NULL, ?, ?, ?)",
+                        (name.decode('utf-8'), dev, inode))
             else:
                 log.debug("Existing file name %r\n", name)
             self.con.commit();
@@ -63,15 +64,15 @@ class Storage:
                            (dev, inode))
         return cur.fetchone()
 
-    def add_inode(self, dev, inode, mtime, sha1):
+    def add_inode(self, dev, inode, mtime, size, sha1):
         try:
             cur = self.con.cursor()
             if self.lookup_inode(dev, inode):
                 cur.execute("UPDATE Inodes SET st_mtime = ?, sha1 = ? WHERE \
                             st_dev = ? and st_inode = ?", (mtime, sha1, dev, inode))
             else:
-                cur.execute("INSERT INTO Inodes VALUES(NULL, ?, ?, ?, ?)",
-                            (dev, inode, mtime, sha1))
+                cur.execute("INSERT INTO Inodes VALUES(NULL, ?, ?, ?, ?, ?, ?)",
+                            (dev, inode, mtime, size, "no-crc32", sha1))
             self.con.commit();
         except lite.Error, e:
             print "Error %s: inode: %s--" % (e.args[0], inode)
@@ -79,11 +80,6 @@ class Storage:
             return False
 
 
-    def dump(self):
-        for line in self.con.iterdump():
-            print line
-
-    # TODO duplicate_keys
     def duplicates(self): # filter by size / number of duplicates
         cur = self.con.cursor()
         cur.execute("DROP TABLE IF EXISTS Duplicates")
@@ -104,8 +100,8 @@ class Storage:
                      JOIN Tmp \
                      ON Inodes.sha1=Tmp.sha1")
 
-        return cur.execute("SELECT Duplicates.count, Inodes.sha1, Files.st_dev, \
-                             Files.st_inode, Files.Name  \
+        return cur.execute("SELECT Duplicates.count, Inodes.sha1, Inodes.crc32, \
+                           Files.st_dev, Files.st_inode, Files.Name  \
                            FROM Files \
                            JOIN Duplicates \
                            ON Files.st_dev=Duplicates.st_dev AND \
