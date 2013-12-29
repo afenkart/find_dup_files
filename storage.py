@@ -101,7 +101,7 @@ class Storage:
             return False
 
 
-    def duplicates(self): # filter by size / number of duplicates
+    def duplicates(self, size = 0): # filter by size / number of duplicates
         """
         Find inodes with equal crc32/sha1, but different st_dev/st_inode
         and all filenames, including hard links
@@ -135,7 +135,8 @@ class Storage:
                            JOIN Inodes \
                            ON Files.st_dev=Inodes.st_dev AND \
                               Files.st_inode = Inodes.st_inode \
-                           ORDER BY Duplicates.count, Files.Name")
+                           ORDER BY Duplicates.count, Inodes.sha1, \
+                                    Inodes.st_size, Files.Name")
 
     def remove(self, sha1, name):
         """

@@ -10,7 +10,7 @@ import traceback
 
 
 def list_duplicates():
-    db = Storage(memory = False, filename = "files.db_sav")
+    db = Storage(memory = False, filename = "files.db")
     for row in db.duplicates():
         print row
 
