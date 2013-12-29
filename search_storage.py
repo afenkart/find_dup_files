@@ -43,6 +43,7 @@ class FindFiles:
     def process_inode(self, _stat, full_name):
         """
         Check if inode is already indexed, or mtime has changed
+        otherwise calculate sha1 and update
         """
         log = self.log
         hard_link = DB.lookup_inode(_stat.st_dev, _stat.st_ino)
@@ -52,13 +53,14 @@ class FindFiles:
 
             if mtime == _stat.st_mtime:
                 log.debug("hard link %s mtime %r valid, skip...", full_name, mtime)
-                return
+                return hard_link['sha1']
             else:
                 log.info("hard link %s mtime %r changed, reindex...", full_name, mtime)
 
         try:
             _sha1 = sha1(full_name)
             DB.add_inode(_stat.st_dev, _stat.st_ino, _stat.st_mtime, _sha1)
+            return _sha1
         except subprocess.CalledProcessError:
             print "problem file", full_name
             self.problem_files.append(full_name)
@@ -95,8 +97,8 @@ class FindFiles:
 
 
         try:
-            self.process_inode(_stat, full_name)
-            DB.add_file(full_name, _stat.st_dev, _stat.st_ino)
+            _sha1 = self.process_inode(_stat, full_name)
+            DB.add_file(full_name, _stat.st_dev, _stat.st_ino, _sha1)
         except subprocess.CalledProcessError:
             print "problem file", full_name
             self.problem_files.append(full_name)
@@ -123,6 +125,7 @@ def unit_test():
     """
     Common errors, special files
     """
+    log = logging.getLogger("UnitTest")
     sha1('/etc/passwd')
     try:
         sha1('000_unit_test_not_exist')
@@ -142,25 +145,26 @@ def unit_test():
     os.system("echo a > test-files/hard_link1.txt")
     os.system("cp test-files/hard_link1.txt test-files/copy_hard_link1.txt")
     __ITER__.search('./test-files')
+    os.unlink("test-files/copy_hard_link1.txt")
 
     print "\nduplicate keys:"
     for row in DB.duplicates():
-        for g in DB.filenames(row['st_dev'], row['st_inode']):
+        print row
+        for g in DB.filenames(row['sha1']):
             print "\t", g
 
 unit_test()
 
 
-os.abort()
+#os.abort()
 
 PROBLEM_FILES = __ITER__.search('/home/afenkart')
 
 
 print "\nduplicate keys:"
-for f in DB.duplicates():
-    sha1 = f['sha1']
-    print sha1
-    for g in DB.filenames(sha1):
+for row in DB.duplicates():
+    print row
+    for g in DB.filenames(row['sha1']):
         print "\t", g
 
 print "\nproblem files:"

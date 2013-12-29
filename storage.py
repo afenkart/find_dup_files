@@ -29,13 +29,13 @@ class Storage:
         cur.execute("DROP TABLE IF EXISTS Files")
         cur.execute("DROP TABLE IF EXISTS Inodes")
         cur.execute("CREATE TABLE Files(id INTEGER PRIMARY KEY, name TEXT, \
-                    st_dev INTEGER, st_inode INTEGER)")
+                    st_dev INTEGER, st_inode INTEGER, SHA1 Text)")
         # TODO st_dev/st_ino shall be primary key
         cur.execute("CREATE TABLE Inodes(id INTEGER PRIMARY KEY, st_dev INTEGER, \
                     st_inode INTEGER, st_mtime, SHA1 Text)")
         self.con.commit();
 
-    def add_file(self, name, dev, inode):
+    def add_file(self, name, dev, inode, _sha1):
         log = self.log
         try:
             cur = self.con.cursor()
@@ -43,8 +43,8 @@ class Storage:
                         (name.decode('utf-8'), dev, inode))
             if not cur.fetchone():
                 log.debug("Adding file name %r", name)
-                cur.execute("INSERT INTO Files VALUES(NULL, ?, ?, ?)",
-                        (name.decode('utf-8'), dev, inode))
+                cur.execute("INSERT INTO Files VALUES(NULL, ?, ?, ?, ?)",
+                        (name.decode('utf-8'), dev, inode, _sha1))
             else:
                 log.debug("Existing file name %r\n", name)
             self.con.commit();
@@ -86,12 +86,19 @@ class Storage:
     # TODO duplicate_keys
     def duplicates(self):
         cur = self.con.cursor()
-        return cur.execute("SELECT COUNT(*) Count, sha1, Name FROM Files GROUP BY \
-                           sha1 HAVING COUNT(*) > 1 ORDER BY COUNT(*) DESC")
+        # Inodes contains no hard links, returns real double disk usage
+        return cur.execute("SELECT COUNT(*) Count, sha1, st_dev, st_inode \
+                           FROM Inodes \
+                           GROUP BY sha1 \
+                           HAVING COUNT(*) > 1 \
+                           ORDER BY COUNT(*) DESC")
 
     def filenames(self, sha1):
         cur = self.con.cursor()
-        return cur.execute("SELECT sha1, Name FROM Files WHERE sha1 = ?", (sha1,))
+        return cur.execute("SELECT Files.sha1, Files.st_dev, Files.st_inode, Files.Name  \
+                           FROM Files \
+                           WHERE Files.sha1 = ? \
+                           ORDER BY sha1, st_dev, st_inode", (sha1,))
 
     def remove(self, sha1, name):
         try:
