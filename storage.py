@@ -110,7 +110,7 @@ class Storage:
         cur = self.con.cursor()
         cur.execute("DROP TABLE IF EXISTS Duplicates")
         cur.execute("DROP TABLE IF EXISTS Tmp")
-        cur.execute("CREATE TABLE Tmp(crc32 INTEGER, count INTEGER)")
+        cur.execute("CREATE TABLE Tmp(crc32 TEXT, count INTEGER)")
         cur.execute("CREATE TABLE Duplicates (st_dev INTEGER, \
                     st_inode INTEGER, count INTEGER)")
         # Inodes contains no hard links, returns real double disk usage
