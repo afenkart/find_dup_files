@@ -183,7 +183,7 @@ if __name__ == "__main__":
     #os.abort()
 
     DB2 = Storage(memory=False)
-    DB2.recreate() # TODO
+    #DB2.recreate() # TODO
 
     __ITER__ = FindFiles(DB2)
     PROBLEM_FILES = __ITER__.search('/home/afenkart')
