@@ -22,7 +22,7 @@ class Storage:
         if memory:
             self.con = lite.connect(':memory:')
         else:
-            self.con = lite.connect(filename)
+            self.con = lite.connect(filename, isolation_level="EXCLUSIVE")
         self.con.row_factory = lite.Row
         #self.con.text_factory = str
 
