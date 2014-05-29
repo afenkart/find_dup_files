@@ -128,7 +128,7 @@ class Storage:
 
         return cur.execute("SELECT Duplicates.count, Inodes.sha1, \
                            Inodes.crc32, Files.st_dev, Files.st_inode, \
-                           Files.Name  \
+                           Inodes.st_size, Files.Name  \
                            FROM Files \
                            JOIN Duplicates \
                            ON Files.st_dev=Duplicates.st_dev AND \
@@ -136,8 +136,10 @@ class Storage:
                            JOIN Inodes \
                            ON Files.st_dev=Inodes.st_dev AND \
                               Files.st_inode = Inodes.st_inode \
+                           WHERE Inodes.st_size > ? \
                            ORDER BY Duplicates.count, Inodes.sha1, \
-                                    Inodes.crc32, Inodes.st_size, Files.Name")
+                                    Inodes.crc32, Inodes.st_size, Files.Name \
+                           ", (size,))
 
     def remove(self, sha1, name):
         """

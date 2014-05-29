@@ -11,8 +11,8 @@ import traceback
 
 def list_duplicates():
     db = Storage(memory = False, filename = "files.db")
-    for row in db.duplicates():
-        print row
+    for row in db.duplicates(1024 * 1024):
+        print dict(row)
 
 if __name__ == "__main__":
     list_duplicates()
