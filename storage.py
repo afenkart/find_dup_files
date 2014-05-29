@@ -44,7 +44,7 @@ class Storage:
         # TODO st_dev/st_ino shall be primary key
         cur.execute("CREATE TABLE Inodes(id INTEGER PRIMARY KEY, \
                     st_dev INTEGER, st_inode INTEGER, st_mtime FLOAT, \
-                    st_size INTEGER, CRC32 Text, SHA1 Text)")
+                    st_size INTEGER, crc32 Text, sha1 Text)")
         self.con.commit()
 
     def add_file(self, name, dev, inode):
@@ -101,6 +101,13 @@ class Storage:
             self.con.rollback()
             return False
 
+    def filename_by_crc32(self, crc32):
+        cur = self.con.cursor()
+        return cur.execute("SELECT name FROM Files \
+                           JOIN Inodes \
+                           ON Files.st_dev=Inodes.st_dev AND \
+                              Files.st_inode = Inodes.st_inode \
+                           WHERE crc32 = ?", (crc32,))
 
     def update_duplicates(self): # filter by size / number of duplicates
         cur = self.con.cursor()
@@ -156,7 +163,6 @@ class Storage:
         except lite.Error, err:
             print "Error %s: name: %s" % (err.args[0], name)
             self.con.rollback()
-
 
 
 def unit_test():
