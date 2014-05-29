@@ -102,11 +102,7 @@ class Storage:
             return False
 
 
-    def duplicates(self, size = 0): # filter by size / number of duplicates
-        """
-        Find inodes with equal crc32/sha1, but different st_dev/st_inode
-        and all filenames, including hard links
-        """
+    def update_duplicates(self): # filter by size / number of duplicates
         cur = self.con.cursor()
         cur.execute("DROP TABLE IF EXISTS Duplicates")
         cur.execute("DROP TABLE IF EXISTS Tmp")
@@ -125,7 +121,14 @@ class Storage:
                      FROM Inodes \
                      JOIN Tmp \
                      ON Inodes.crc32=Tmp.crc32")
+        self.con.commit()
 
+    def duplicates(self, size = 0): # filter by size / number of duplicates
+        """
+        Find inodes with equal crc32/sha1, but different st_dev/st_inode
+        and all filenames, including hard links
+        """
+        cur = self.con.cursor()
         return cur.execute("SELECT Duplicates.count, Inodes.sha1, \
                            Inodes.crc32, Files.st_dev, Files.st_inode, \
                            Inodes.st_size, Files.Name  \
