@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 import urwid
 import storage
-import sys
+import sys, os
+import re
 
-f = open('/tmp/log.txt', 'w+')
+f = open('/tmp/log_gui.txt', 'w+')
 
 browse_stack = []
+Storage = storage.Storage(memory=False)
 
 class DuplicatesWalker(urwid.ListWalker):
     def __init__(self):
-        self.db = storage.Storage(memory=False)
-        self.duplicates = self.db.duplicates().fetchall()
+        self.duplicates = Storage.duplicates(1024 * 1024).fetchall()
         self.focus = (0, self.duplicates[0])
 
     def _get_at_pos(self, focus):
@@ -38,11 +39,12 @@ class DuplicatesWalker(urwid.ListWalker):
             return (None, None)
         return self._get_at_pos((idx - 1, None))
 
-class DuplicatesDetailsWalker(urwid.ListWalker):
-    def __init__(self, sha1):
-        self.db = storage.Storage(memory=False)
-        self.duplicates = self.db.filenames(sha1).fetchall()
-        self.focus = (0, self.duplicates[0])
+class DuplicatesWithFilenamesWalker(urwid.ListWalker):
+    def __init__(self, crc32, sha1):
+        self.crc32 = crc32
+        self.sha1 = sha1
+        self.filenames = Storage.filename_by_crc32(crc32).fetchall()
+        self.focus = (0, (self.filenames[0]['Name'], crc32, sha1))
 
     def set_focus(self, focus):
         self.focus = focus
@@ -50,26 +52,27 @@ class DuplicatesDetailsWalker(urwid.ListWalker):
 
     def next_position(self, position):
         (idx, cur) = position
-        if idx >= len(self.duplicates) - 1:
+        if idx >= len(self.filenames) - 1:
             raise IndexError
-        return (idx + 1, self.duplicates[idx + 1])
+        return (idx + 1, (self.filenames[idx + 1]['Name'], self.crc32, self.sha1))
 
     def prev_position(self, position):
         (idx, elt) = position
         if (idx < 1):
             raise IndexError
-        return (idx - 1, self.duplicates[idx - 1])
+        return (idx - 1, (self.filenames[idx - 1], self.crc32, self.sha1))
 
     def __getitem__(self, focus):
         (idx, ignore) = focus
-        cur = self.duplicates[idx]
+        cur = self.filenames[idx]
         button = urwid.Button("%d %s" % (idx, cur['Name']))
         return urwid.AttrMap(button, 'edit', 'editfocus')
 
 
 options = u'see remove hard-link'.split()
-def createChoicesWalker(cur):
-    body = [urwid.Text(cur['name']), urwid.Divider()]
+def createChoicesWalker(filename, crc32, sha1):
+    f.write("createChoicesWalker: %s %s %s\n" % (filename, crc32, sha1))
+    body = [urwid.Text(filename), urwid.Divider()]
     for c in options:
         button = urwid.Button(c)
         widget = urwid.AttrMap(button, 'edit', 'editfocus')
@@ -100,8 +103,8 @@ class Browse(urwid.WidgetWrap):
         return widget.get_label()
 
     def get_elt(self):
-        #f.write("%s" % type(self.walker))
-        if (type(self.walker) == DuplicatesDetailsWalker or
+        #f.write("%s\n" % type(self.walker))
+        if (type(self.walker) == DuplicatesWithFilenamesWalker or
             type(self.walker) == DuplicatesWalker):
             (idx, elt) = self.walker.focus
             return elt
@@ -128,16 +131,24 @@ def browse_into(widget, choice):
     browse_stack.append(widget)
     f.write('browse_into %s level %d\n' % (choice, len(browse_stack)))
     if (len(browse_stack) == 1):
-        main.original_widget = Browse(choice, DuplicatesDetailsWalker(choice['sha1']))
+        main.original_widget = Browse(choice,
+                                      DuplicatesWithFilenamesWalker(choice['crc32'],
+                                                                    choice['sha1']))
     elif (len(browse_stack) == 2):
-        row = choice
-        store.filename = choice['name']
-        store.sha1 = choice['sha1']
-        main.original_widget = Browse(choice, createChoicesWalker(choice))
+        (filename, crc32, sha1) = choice
+        store.filename = filename
+        store.sha1 = sha1
+        main.original_widget = Browse(choice, createChoicesWalker(filename,
+                                                                  crc32, sha1))
     elif (len(browse_stack) == 3):
         action = choice
         store.action = choice
-        main.original_widget = Browse(choice, createConfirmAction(action))
+        if (action == "see"):
+            f.write("see %s\n" % re.escape(store.filename))
+            os.system("see %s" % re.escape(store.filename))
+            browse_stack.pop()
+        else:
+            main.original_widget = Browse(choice, createConfirmAction(action))
     elif (len(browse_stack) == 4):
         ok_cancel = (choice == "Ok")
         f.write("execute %s %s\n" % (store.action, store.filename))
