@@ -39,12 +39,20 @@ class Storage:
         cur = self.con.cursor()
         cur.execute("DROP TABLE IF EXISTS Files")
         cur.execute("DROP TABLE IF EXISTS Inodes")
-        cur.execute("CREATE TABLE Files(id INTEGER PRIMARY KEY, name TEXT, \
-                    st_dev INTEGER, st_inode INTEGER)")
-        # TODO st_dev/st_ino shall be primary key
-        cur.execute("CREATE TABLE Inodes(id INTEGER PRIMARY KEY, \
-                    st_dev INTEGER, st_inode INTEGER, st_mtime FLOAT, \
-                    st_size INTEGER, crc32 Text, sha1 Text)")
+        cur.execute("CREATE TABLE Files(name TEXT, st_dev INTEGER, st_inode INTEGER)")
+        # constraint pk_files_name PRIMARY KEY (name)
+        # constraint fk_files_dev_inode foreign key (st_dev, st_inode) reference inode(st_dev, st_inode)
+        cur.execute("CREATE TABLE Inodes(st_dev INTEGER, st_inode INTEGER, crc32 INTEGER, sha1 Text, st_mtime FLOAT, st_size INTEGER, constraint inodes_pk PRIMARY KEY (st_dev, st_inode))")
+
+        # use the index luke!
+        # CREATE INDEX inodes_crc32_idx ON Inodes (crc32);
+        # CREATE INDEX inodes_inodes_idx ON Inodes (st_dev, st_inode);
+        # CREATE INDEX files_inodes_idx ON Files(st_dev, st_inode);
+
+        cur.execute("CREATE VIEW FileInodeView AS SELECT i.st_dev, i.st_inode, i.crc32, i.sha1, i.st_size, f.name FROM Inodes i JOIN Files f ON f.st_dev = i.st_dev and i.st_inode = f.st_inode")
+        cur.execute("CREATE VIEW DuplicatesView AS SELECT st_dev, st_inode, crc32, sha1, COUNT(*) Count, st_size, name FROM FileInodeView GROUP BY crc32 HAVING COUNT(*) > 1")
+        #cur.execute("CREATE VIEW DuplicatesView AS SELECT st_dev, st_inode, crc32, COUNT(*) Count, st_size FROM Inodes GROUP BY crc32 HAVING COUNT(*) > 1")
+        # search duplicates on Inodes, will not count hardlinks, which is confusing if count is 2, but in the gui suddenly there are 3 files
         self.con.commit()
 
     def add_file(self, name, dev, inode):
@@ -109,47 +117,14 @@ class Storage:
                               Files.st_inode = Inodes.st_inode \
                            WHERE crc32 = ?", (crc32,))
 
-    def update_duplicates(self): # filter by size / number of duplicates
-        cur = self.con.cursor()
-        cur.execute("DROP TABLE IF EXISTS Duplicates")
-        cur.execute("DROP TABLE IF EXISTS Tmp")
-        cur.execute("CREATE TABLE Tmp(crc32 TEXT, count INTEGER)")
-        cur.execute("CREATE TABLE Duplicates (st_dev INTEGER, \
-                    st_inode INTEGER, count INTEGER)")
-        # Inodes contains no hard links, returns real double disk usage
-        cur.execute("INSERT INTO Tmp(crc32, count) \
-                     SELECT crc32, COUNT(*) Count \
-                     FROM Inodes \
-                     GROUP BY crc32 \
-                     HAVING COUNT(*) > 1 \
-                     ORDER BY COUNT(*) DESC")
-        cur.execute("INSERT INTO Duplicates(st_dev, st_inode, count) \
-                     SELECT st_dev, st_inode, tmp.Count \
-                     FROM Inodes \
-                     JOIN Tmp \
-                     ON Inodes.crc32=Tmp.crc32")
-        self.con.commit()
-
     def duplicates(self, size = 0): # filter by size / number of duplicates
         """
         Find inodes with equal crc32/sha1, but different st_dev/st_inode
         and all filenames, including hard links
         """
         cur = self.con.cursor()
-        return cur.execute("SELECT Duplicates.count, Inodes.sha1, \
-                           Inodes.crc32, Files.st_dev, Files.st_inode, \
-                           Inodes.st_size, Files.Name  \
-                           FROM Files \
-                           JOIN Duplicates \
-                           ON Files.st_dev=Duplicates.st_dev AND \
-                              Files.st_inode = Duplicates.st_inode \
-                           JOIN Inodes \
-                           ON Files.st_dev=Inodes.st_dev AND \
-                              Files.st_inode = Inodes.st_inode \
-                           WHERE Inodes.st_size > ? \
-                           ORDER BY Duplicates.count, Inodes.sha1, \
-                                    Inodes.crc32, Inodes.st_size, Files.Name \
-                           ", (size,))
+        #return cur.execute("SELECT * from DuplicatesView WHERE st_size > ? ORDER BY st_size desc, count desc, name", (size,))
+        return cur.execute("SELECT * from (SELECT Count() as count, * FROM Inodes WHERE st_size > ? group by crc32 having count() > 1) as d JOIN Files f ON d.st_dev = f.st_dev and d.st_inode = f.st_inode ORDER BY d.st_size desc, d.count desc, f.name", (size,));
 
     def remove(self, sha1, name):
         """
