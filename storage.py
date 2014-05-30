@@ -124,7 +124,7 @@ class Storage:
         """
         cur = self.con.cursor()
         #return cur.execute("SELECT * from DuplicatesView WHERE st_size > ? ORDER BY st_size desc, count desc, name", (size,))
-        return cur.execute("SELECT * from (SELECT Count() as count, * FROM Inodes WHERE st_size > ? group by crc32 having count() > 1) as d JOIN Files f ON d.st_dev = f.st_dev and d.st_inode = f.st_inode ORDER BY d.st_size desc, d.count desc, f.name", (size,));
+        return cur.execute("SELECT Count() as count, * from (SELECT * FROM Inodes WHERE st_size > ?) as d JOIN Files f ON d.st_dev = f.st_dev and d.st_inode = f.st_inode  GROUP BY crc32 HAVING count() > 1 ORDER BY d.st_size desc, count desc, f.name", (size,));
 
     def remove(self, sha1, name):
         """
