@@ -106,13 +106,9 @@ class Storage:
             self.con.rollback()
             return False
 
-    def filename_by_crc32(self, crc32):
+    def files_by_crc32(self, crc32):
         cur = self.con.cursor()
-        return cur.execute("SELECT name FROM Files \
-                           JOIN Inodes \
-                           ON Files.st_dev=Inodes.st_dev AND \
-                              Files.st_inode = Inodes.st_inode \
-                           WHERE crc32 = ?", (crc32,))
+        return cur.execute("SELECT *FROM FileInodeView WHERE crc32 = ?", (crc32,))
 
     def duplicates(self, size = 0): # filter by size / number of duplicates
         """

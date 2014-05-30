@@ -17,7 +17,7 @@ class DuplicatesWalker(urwid.ListWalker):
     def _get_at_pos(self, focus):
         (idx, invalid) = focus
         cur = self.duplicates[idx]
-        button = urwid.Button("%d %d %s" % (idx, cur['Count'], cur['Name']))
+        button = urwid.Button("%d %d %s" % (cur['Count'], cur['st_size'], cur['Name']))
         return urwid.AttrMap(button, 'edit', 'editfocus'), (idx, cur)
 
     def get_focus(self): 
@@ -43,7 +43,7 @@ class DuplicatesWithFilenamesWalker(urwid.ListWalker):
     def __init__(self, crc32, sha1):
         self.crc32 = crc32
         self.sha1 = sha1
-        self.filenames = Storage.filename_by_crc32(crc32).fetchall()
+        self.filenames = Storage.files_by_crc32(crc32).fetchall()
         self.focus = (0, (self.filenames[0]['Name'], crc32, sha1))
 
     def set_focus(self, focus):
@@ -65,7 +65,7 @@ class DuplicatesWithFilenamesWalker(urwid.ListWalker):
     def __getitem__(self, focus):
         (idx, ignore) = focus
         cur = self.filenames[idx]
-        button = urwid.Button("%d %s" % (idx, cur['Name']))
+        button = urwid.Button("%d %s" % (cur['st_inode'], cur['Name']))
         return urwid.AttrMap(button, 'edit', 'editfocus')
 
 
