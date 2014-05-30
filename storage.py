@@ -50,9 +50,6 @@ class Storage:
         # CREATE INDEX files_inodes_idx ON Files(st_dev, st_inode);
 
         cur.execute("CREATE VIEW FileInodeView AS SELECT i.st_dev, i.st_inode, i.crc32, i.sha1, i.st_size, f.name FROM Inodes i JOIN Files f ON f.st_dev = i.st_dev and i.st_inode = f.st_inode")
-        cur.execute("CREATE VIEW DuplicatesView AS SELECT st_dev, st_inode, crc32, sha1, COUNT(*) Count, st_size, name FROM FileInodeView GROUP BY crc32 HAVING COUNT(*) > 1")
-        #cur.execute("CREATE VIEW DuplicatesView AS SELECT st_dev, st_inode, crc32, COUNT(*) Count, st_size FROM Inodes GROUP BY crc32 HAVING COUNT(*) > 1")
-        # search duplicates on Inodes, will not count hardlinks, which is confusing if count is 2, but in the gui suddenly there are 3 files
         self.con.commit()
 
     def add_file(self, name, dev, inode):
@@ -123,8 +120,10 @@ class Storage:
         and all filenames, including hard links
         """
         cur = self.con.cursor()
-        #return cur.execute("SELECT * from DuplicatesView WHERE st_size > ? ORDER BY st_size desc, count desc, name", (size,))
-        return cur.execute("SELECT Count() as count, * from (SELECT * FROM Inodes WHERE st_size > ?) as d JOIN Files f ON d.st_dev = f.st_dev and d.st_inode = f.st_inode  GROUP BY crc32 HAVING count() > 1 ORDER BY d.st_size desc, count desc, f.name", (size,));
+        # search duplicates on Inodes, will not count hardlinks, which is
+        # confusing if the top level view in the gui says duplicate count is 2,
+        # but in the detail view there are suddenly 3 files
+        return cur.execute("Select COUNT() Count, * FROM FileInodeView WHERE st_size > ? GROUP BY crc32 HAVING COUNT(*) > 1 ORDER BY st_size desc, count desc, name", (size,))
 
     def remove(self, sha1, name):
         """
