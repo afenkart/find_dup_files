@@ -39,8 +39,7 @@ class Storage:
         cur = self.con.cursor()
         cur.execute("DROP TABLE IF EXISTS Files")
         cur.execute("DROP TABLE IF EXISTS Inodes")
-        cur.execute("CREATE TABLE Files(name TEXT, st_dev INTEGER, st_inode INTEGER)")
-        # constraint pk_files_name PRIMARY KEY (name)
+        cur.execute("CREATE TABLE Files(name TEXT PRIMARY KEY, st_dev INTEGER, st_inode INTEGER)")
         # constraint fk_files_dev_inode foreign key (st_dev, st_inode) reference inode(st_dev, st_inode)
         cur.execute("CREATE TABLE Inodes(st_dev INTEGER, st_inode INTEGER, crc32 INTEGER, sha1 Text, st_mtime FLOAT, st_size INTEGER, constraint inodes_pk PRIMARY KEY (st_dev, st_inode))")
 
@@ -108,7 +107,7 @@ class Storage:
 
     def files_by_crc32(self, crc32):
         cur = self.con.cursor()
-        return cur.execute("SELECT *FROM FileInodeView WHERE crc32 = ?", (crc32,))
+        return cur.execute("SELECT * FROM FileInodeView WHERE crc32 = ?", (crc32,))
 
     def duplicates(self, size = 0): # filter by size / number of duplicates
         """
