@@ -32,7 +32,7 @@ def crc32(name):
     """
     ret = subprocess.check_output(["/usr/bin/crc32", name],
                                  stderr=subprocess.STDOUT).strip()
-    return str(ret)
+    return int('0x' + ret, 16)
 
 
 class FindFiles:
