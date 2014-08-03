@@ -8,7 +8,7 @@ def crc32(fname):
         d = f.read(32768)
         while d:
             crc = binascii.crc32(d, crc)
-            d = f.read(32768)
+            d = f.read(524288) # 512 kB
     return crc & 0xffffffff
 
 
