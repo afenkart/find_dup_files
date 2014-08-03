@@ -8,6 +8,7 @@ import os, stat
 import subprocess
 import socket
 import logging
+from crc32 import crc32
 
 from storage import Storage
 
@@ -25,15 +26,6 @@ def sha1(name):
     ret = subprocess.check_output(["/usr/bin/sha1sum", name],
                                  stderr=subprocess.STDOUT).strip()
     return str(ret).split(' ')[0]
-
-def crc32(name):
-    """
-    1.4GB in 1.9 sec
-    """
-    ret = subprocess.check_output(["/usr/bin/crc32", name],
-                                 stderr=subprocess.STDOUT).strip()
-    return int('0x' + ret, 16)
-
 
 class FindFiles:
     """
@@ -174,7 +166,7 @@ def unit_test():
     os.system("echo a > test-files/crc32-test.txt")
     _crc32 = crc32("test-files/crc32-test.txt")
     os.unlink("test-files/crc32-test.txt")
-    print "crc32 " + _crc32
+    print "crc32 %d" % _crc32
 
 
 if __name__ == "__main__":
