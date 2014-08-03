@@ -51,21 +51,35 @@ class Storage:
         cur.execute("CREATE VIEW FileInodeView AS SELECT i.st_dev, i.st_inode, i.crc32, i.sha1, i.st_size, f.name FROM Inodes i JOIN Files f ON f.st_dev = i.st_dev and i.st_inode = f.st_inode")
         self.con.commit()
 
+    def lookup_file(self, name):
+        """
+        check if dev/inode tuple exists
+        """
+        cur = self.con.cursor()
+        cur.execute("SELECT * FROM Files WHERE name = ?", (name.decode('utf-8'),))
+        return cur.fetchone()
+
     def add_file(self, name, dev, inode):
         """
         filename -> dev/inode connections
         """
         log = self.log
         try:
+            f = self.lookup_file(name)
+
+            if f and (f['st_inode'] == inode and f['st_dev'] == dev):
+                # nothing to be done
+                return
+
             cur = self.con.cursor()
-            cur.execute("SELECT * FROM Files WHERE name = ? AND st_dev = ? AND \
-                        st_inode = ?", (name.decode('utf-8'), dev, inode))
-            if not cur.fetchone():
+            if not f:
                 log.debug("Adding file name %r", name)
-                cur.execute("INSERT INTO Files VALUES(NULL, ?, ?, ?)",
+                cur.execute("INSERT INTO Files VALUES(?, ?, ?)",
                         (name.decode('utf-8'), dev, inode))
             else:
-                log.debug("Existing file name %r\n", name)
+                # inode/dev tuple changed
+                cur.execute("UPDATE Files SET st_dev = ?, st_inode = ? WHERE name = ?",
+                            (dev, inode, name))
             self.con.commit()
         except lite.Error, err:
             print "Error %s: name: %s" % (err.args[0], name)
@@ -97,7 +111,7 @@ class Storage:
                             WHERE  st_dev = ? and st_inode = ?",
                             (mtime, crc32, sha1, dev, inode))
             else:
-                cur.execute("INSERT INTO Inodes VALUES(NULL, ?, ?, ?, ?, ?, ?)",
+                cur.execute("INSERT INTO Inodes VALUES(?, ?, ?, ?, ?, ?)",
                             (dev, inode, mtime, size, crc32, sha1))
             self.con.commit()
         except lite.Error, err:
