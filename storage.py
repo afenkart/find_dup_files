@@ -24,6 +24,7 @@ class Storage:
         else:
             self.con = lite.connect(filename, isolation_level="EXCLUSIVE")
         self.con.row_factory = lite.Row
+        self.added_inodes = 0
         #self.con.text_factory = str
 
     def recreate(self):
@@ -122,7 +123,10 @@ class Storage:
             else:
                 cur.execute("INSERT INTO Inodes VALUES(?, ?, ?, ?, ?, ?)",
                             (dev, inode, crc32, sha1, mtime, size))
-            #self.con.commit()
+            self.added_inodes += 1
+            if not self.added_inodes % 10000:
+                self.log.info("-- transaction commit --")
+                self.con.commit()
         except lite.Error, err:
             print "Error %s: inode: %s--" % (err.args[0], inode)
             #self.con.rollback()
