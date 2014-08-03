@@ -178,7 +178,11 @@ if __name__ == "__main__":
     #DB2.recreate() # TODO
 
     __ITER__ = FindFiles(DB2)
+
+    DB2.begin_transaction()
     PROBLEM_FILES = __ITER__.search('/home/afenkart')
+    # TODO, do not commit every insertion, but do not rollback everything
+    DB2.commit_transaction()
 
     print "\nduplicate keys:"
     print_duplicates(DB2)

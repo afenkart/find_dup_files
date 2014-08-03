@@ -32,6 +32,15 @@ class Storage:
         """
         self.create_db()
 
+    def begin_transaction(self):
+        pass # implicit by non select statement
+
+    def commit_transaction(self):
+        self.con.commit()
+
+    def rollback_transaction(self):
+        self.con.rollback()
+
     def create_db(self):
         """
         recreates files/inodes table
@@ -80,11 +89,11 @@ class Storage:
                 # inode/dev tuple changed
                 cur.execute("UPDATE Files SET st_dev = ?, st_inode = ? WHERE name = ?",
                             (dev, inode, name))
-            self.con.commit()
+            #self.con.commit()
         except lite.Error, err:
             print "Error %s: name: %s" % (err.args[0], name)
             print traceback.format_exc()
-            self.con.rollback()
+            #self.con.rollback()
         except UnicodeDecodeError, err:
             print traceback.format_exc()
             print name
@@ -113,10 +122,10 @@ class Storage:
             else:
                 cur.execute("INSERT INTO Inodes VALUES(?, ?, ?, ?, ?, ?)",
                             (dev, inode, crc32, sha1, mtime, size))
-            self.con.commit()
+            #self.con.commit()
         except lite.Error, err:
             print "Error %s: inode: %s--" % (err.args[0], inode)
-            self.con.rollback()
+            #self.con.rollback()
             return False
 
     def files_by_crc32(self, crc32):
