@@ -106,13 +106,13 @@ class Storage:
         try:
             cur = self.con.cursor()
             if self.lookup_inode(dev, inode):
-                cur.execute("UPDATE Inodes SET st_mtime = ?, crc32 = ?, \
-                                    sha1 = ? \
-                            WHERE  st_dev = ? and st_inode = ?",
-                            (mtime, crc32, sha1, dev, inode))
+                cur.execute("UPDATE Inodes SET crc32 = ?, sha1 = ?, st_mtime = ?, \
+                                st_size = ? \
+                            WHERE st_dev = ? and st_inode = ?",
+                            (crc32, sha1, mtime, size, dev, inode))
             else:
                 cur.execute("INSERT INTO Inodes VALUES(?, ?, ?, ?, ?, ?)",
-                            (dev, inode, mtime, size, crc32, sha1))
+                            (dev, inode, crc32, sha1, mtime, size))
             self.con.commit()
         except lite.Error, err:
             print "Error %s: inode: %s--" % (err.args[0], inode)
