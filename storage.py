@@ -61,6 +61,43 @@ class Storage:
         cur.execute("CREATE VIEW FileInodeView AS SELECT i.st_dev, i.st_inode, i.crc32, i.sha1, i.st_size, f.name FROM Inodes i JOIN Files f ON f.st_dev = i.st_dev and i.st_inode = f.st_inode")
         self.con.commit()
 
+    def create_indices(self):
+        """
+        create index -- for faster lookup
+        """
+        cur = self.con.cursor()
+
+        res = cur.execute("SELECT name FROM sqlite_master WHERE type='index' \
+                           AND NOT name LIKE '%_autoindex_%'")
+        indices = map(lambda x: x['name'], res)
+
+        if not 'inodes_crc32_idx' in indices:
+            cur.execute("CREATE INDEX inodes_crc32_idx ON Inodes (crc32)")
+        if not 'inodes_inodes_idx' in indices:
+            cur.execute("CREATE INDEX inodes_inodes_idx ON Inodes (st_dev, st_inode)")
+        if not 'files_inodes_idx' in indices:
+            cur.execute("CREATE INDEX files_inodes_idx ON Files(st_dev, st_inode)")
+        self.con.commit()
+
+    def drop_indices(self):
+        """
+        drop index -- for insertion
+        """
+        #cur.execute("DROP INDEX inodes_crc32_idx") ;
+        #cur.execute("DROP INDEX inodes_inodes_idx");
+        #cur.execute("DROP INDEX files_inodes_idx");
+        known_indices = ["inodes_crc32_idx", "inodes_inodes_idx", "files_inodes_idx"]
+
+        cur = self.con.cursor()
+        res = cur.execute("SELECT name FROM sqlite_master WHERE type='index' \
+                           AND NOT name LIKE '%_autoindex_%'")
+
+        for it in res:
+            if it['name'] in known_indices:
+                cur.execute("DROP INDEX " + it['name'])
+
+        self.con.commit()
+
     def lookup_file(self, name):
         """
         check if dev/inode tuple exists
@@ -177,6 +214,11 @@ def unit_test():
     for row in dbm.duplicates():
         print row
 
+    dbm.drop_indices()
+    dbm.drop_indices()
+    dbm.create_indices()
+    dbm.create_indices()
+    dbm.drop_indices()
 
 if __name__ == "__main__":
     unit_test()
