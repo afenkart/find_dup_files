@@ -94,7 +94,7 @@ class FindFiles:
             log.info("ignore FIFO (named pipe): %s" % full_name)
             return
         elif stat.S_ISLNK(_stat.st_mode):
-            log.info("ignore symbolic link: %s" % full_name)
+            log.debug("ignore symbolic link: %s" % full_name)
             return
         assert(stat.S_ISREG(_stat.st_mode))
 
