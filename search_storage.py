@@ -16,7 +16,7 @@ TIMESTMP_FMT = ("%H:%M:%S") # no %f for msecs
 FORMAT = '%(asctime)s.%(msecs)03d %(name)-5s %(message)s'
 logging.basicConfig(format=FORMAT, datefmt=TIMESTMP_FMT, level=logging.INFO)
 
-VISIT_LOG = open('visit.log', 'w', buffering = 0)
+VISIT_LOG = open('visit.log', 'w', buffering=0)
 
 def sha1(name):
     """
@@ -24,7 +24,7 @@ def sha1(name):
     1.4GB in 3.8 sec
     """
     ret = subprocess.check_output(["/usr/bin/sha1sum", name],
-                                 stderr=subprocess.STDOUT).strip()
+                                  stderr=subprocess.STDOUT).strip()
     return str(ret).split(' ')[0]
 
 class FindFiles:
@@ -77,7 +77,7 @@ class FindFiles:
 
         if os.path.islink(full_name):
             # if link is invalid os.stat fails
-            log.info("ignore symbolic link: %s" % full_name)
+            log.info("ignore symbolic link: %s", full_name)
             return
 
         _stat = os.stat(full_name)
@@ -85,18 +85,18 @@ class FindFiles:
             log.info("ignore socket: %s", full_name)
             return
         elif stat.S_ISCHR(_stat.st_mode):
-            log.info("ignore character special device file: %s" % full_name)
+            log.info("ignore character special device file: %s", full_name)
             return
         elif stat.S_ISBLK(_stat.st_mode):
-            log.info("ignore block special device file: %s" % full_name)
+            log.info("ignore block special device file: %s", full_name)
             return
         elif stat.S_ISFIFO(_stat.st_mode):
-            log.info("ignore FIFO (named pipe): %s" % full_name)
+            log.info("ignore FIFO (named pipe): %s", full_name)
             return
         elif stat.S_ISLNK(_stat.st_mode):
-            log.debug("ignore symbolic link: %s" % full_name)
+            log.debug("ignore symbolic link: %s", full_name)
             return
-        assert(stat.S_ISREG(_stat.st_mode))
+        assert stat.S_ISREG(_stat.st_mode)
 
 
         try:
@@ -190,5 +190,3 @@ if __name__ == "__main__":
     print "\nproblem files:"
     for f in PROBLEM_FILES:
         print f
-
-

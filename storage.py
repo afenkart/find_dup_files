@@ -16,7 +16,7 @@ class Storage:
     """
     Do it all class
     """
-    def __init__(self, memory, filename = "files.db"):
+    def __init__(self, memory, filename="files.db"):
         self.log = logging.getLogger("Storage")
 
         if memory:
@@ -34,13 +34,16 @@ class Storage:
         self.create_db()
 
     def begin_transaction(self):
+        """
+        begin adding files
+        """
         pass # implicit by non select statement
 
     def commit_transaction(self):
+        """
+        done adding files
+        """
         self.con.commit()
-
-    def rollback_transaction(self):
-        self.con.rollback()
 
     def create_db(self):
         """
@@ -69,7 +72,7 @@ class Storage:
 
         res = cur.execute("SELECT name FROM sqlite_master WHERE type='index' \
                            AND NOT name LIKE '%_autoindex_%'")
-        indices = map(lambda x: x['name'], res)
+        indices = [x['name'] for x in res]
 
         if not 'inodes_crc32_idx' in indices:
             cur.execute("CREATE INDEX inodes_crc32_idx ON Inodes (crc32)")
@@ -92,9 +95,9 @@ class Storage:
         res = cur.execute("SELECT name FROM sqlite_master WHERE type='index' \
                            AND NOT name LIKE '%_autoindex_%'")
 
-        for it in res:
-            if it['name'] in known_indices:
-                cur.execute("DROP INDEX " + it['name'])
+        for _it in res:
+            if _it['name'] in known_indices:
+                cur.execute("DROP INDEX " + _it['name'])
 
         self.con.commit()
 
@@ -122,7 +125,7 @@ class Storage:
             if not f:
                 log.debug("Adding file name %r", name)
                 cur.execute("INSERT INTO Files VALUES(?, ?, ?)",
-                        (name.decode('utf-8'), dev, inode))
+                            (name.decode('utf-8'), dev, inode))
             else:
                 # inode/dev tuple changed
                 cur.execute("UPDATE Files SET st_dev = ?, st_inode = ? WHERE name = ?",
@@ -143,7 +146,7 @@ class Storage:
         """
         cur = self.con.cursor()
         cur.execute("SELECT * FROM Inodes WHERE st_dev = ? and st_inode = ?",
-                           (dev, inode))
+                    (dev, inode))
         return cur.fetchone()
 
     def add_inode(self, dev, inode, mtime, size, crc32, sha1):
@@ -170,10 +173,13 @@ class Storage:
             return False
 
     def files_by_crc32(self, crc32):
+        """
+        search for files having given crc32
+        """
         cur = self.con.cursor()
         return cur.execute("SELECT * FROM FileInodeView WHERE crc32 = ?", (crc32,))
 
-    def duplicates(self, size = 0): # filter by size / number of duplicates
+    def duplicates(self, size=0): # filter by size / number of duplicates
         """
         Find inodes with equal crc32/sha1, but different st_dev/st_inode
         and all filenames, including hard links
