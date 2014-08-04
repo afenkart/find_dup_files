@@ -8,6 +8,7 @@ f = open('/tmp/log_gui.txt', 'w+')
 
 browse_stack = []
 Storage = storage.Storage(memory=False)
+Storage.create_indices()
 
 class DuplicatesWalker(urwid.ListWalker):
     def __init__(self):

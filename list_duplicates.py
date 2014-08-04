@@ -11,6 +11,7 @@ import traceback
 
 def list_duplicates():
     db = Storage(memory = False, filename = "files.db")
+    db.create_indices()
     for row in db.duplicates(1024 * 1024):
         print dict(row)
 

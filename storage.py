@@ -33,17 +33,18 @@ class Storage:
         """
         self.create_db()
 
-    def begin_transaction(self):
+    def begin_adding_files(self):
         """
         begin adding files
         """
-        pass # implicit by non select statement
+        self.drop_indices()
 
-    def commit_transaction(self):
+    def done_adding_files(self):
         """
         done adding files
         """
-        self.con.commit()
+        self.con.commit() # one big transaction
+        DB2.create_indices()
 
     def create_db(self):
         """

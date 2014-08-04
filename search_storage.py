@@ -179,10 +179,10 @@ if __name__ == "__main__":
 
     __ITER__ = FindFiles(DB2)
 
-    DB2.begin_transaction()
+    DB2.begin_adding_files()
     PROBLEM_FILES = __ITER__.search('/home/afenkart')
     # TODO, do not commit every insertion, but do not rollback everything
-    DB2.commit_transaction()
+    DB2.done_adding_files()
 
     print "\nduplicate keys:"
     print_duplicates(DB2)
