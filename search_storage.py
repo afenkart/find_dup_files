@@ -121,6 +121,8 @@ class FindFiles:
                 full_name = os.path.join(root, fna)
                 self.visit(full_name)
 
+        # TODO return PROBLEM_FILES
+
 
 def print_duplicates(dbs):
     """
