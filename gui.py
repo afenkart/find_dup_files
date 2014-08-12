@@ -45,29 +45,30 @@ class DuplicatesWithFilenamesWalker(urwid.ListWalker):
         self.crc32 = crc32
         self.sha1 = sha1
         self.filenames = Storage.files_by_crc32(crc32).fetchall()
-        self.focus = (0, (self.filenames[0]['Name'], crc32, sha1))
+        self.focus = 0
 
     def set_focus(self, focus):
         self.focus = focus
         self._modified()
 
-    def next_position(self, position):
-        (idx, cur) = position
+    def next_position(self, idx):
         if idx >= len(self.filenames) - 1:
             raise IndexError
-        return (idx + 1, (self.filenames[idx + 1]['Name'], self.crc32, self.sha1))
+        return (idx + 1)
 
-    def prev_position(self, position):
-        (idx, elt) = position
+    def prev_position(self, idx):
         if (idx < 1):
             raise IndexError
-        return (idx - 1, (self.filenames[idx - 1]['Name'], self.crc32, self.sha1))
+        return idx - 1
 
-    def __getitem__(self, focus):
-        (idx, ignore) = focus
+    def __getitem__(self, idx):
         cur = self.filenames[idx]
         button = urwid.Button("%d %s" % (cur['st_inode'], cur['Name']))
         return urwid.AttrMap(button, 'edit', 'editfocus')
+
+    def selection(self):
+        idx = self.focus
+        return (self.filenames[idx]['Name'], self.crc32, self.sha1)
 
 
 options = u'see remove hard-link'.split()
@@ -105,10 +106,12 @@ class Browse(urwid.WidgetWrap):
 
     def get_elt(self):
         #f.write("%s\n" % type(self.walker))
-        if (type(self.walker) == DuplicatesWithFilenamesWalker or
-            type(self.walker) == DuplicatesWalker):
+        f.write("get_elt %s\n" % type(self.walker))
+        if type(self.walker) == DuplicatesWalker:
             (idx, elt) = self.walker.focus
             return elt
+        if type(self.walker) == DuplicatesWithFilenamesWalker:
+            return self.walker.selection()
         else:
             return self.get_widget_label(self.walker.focus)
 
