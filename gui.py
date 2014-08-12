@@ -71,24 +71,22 @@ class DuplicatesWithFilenamesWalker(urwid.ListWalker):
         return (self.filenames[idx]['Name'], self.crc32, self.sha1)
 
 
+def createSimpleFocusListWalker(title, elts):
+    body = [urwid.Text(title), urwid.Divider()]
+    for c in elts:
+        button = urwid.Button(c)
+        widget = urwid.AttrMap(button, 'edit', 'editfocus')
+        body.append(widget)
+    return urwid.SimpleFocusListWalker(body)
+
 options = u'see remove hard-link'.split()
 def createChoicesWalker(filename, crc32, sha1):
-    f.write("createChoicesWalker: %s %s %s\n" % (filename, crc32, sha1))
-    body = [urwid.Text(filename), urwid.Divider()]
-    for c in options:
-        button = urwid.Button(c)
-        widget = urwid.AttrMap(button, 'edit', 'editfocus')
-        body.append(widget)
-    return urwid.SimpleFocusListWalker(body)
+    return createSimpleFocusListWalker(filename, options)
 
-
+ok_cancel = ['Ok', 'Cancel']
 def createConfirmAction(choice):
-    body = [urwid.Text([u'You chose %s\n' % choice])]
-    for c in ['Ok', 'Cancel']:
-        button = urwid.Button(c)
-        widget = urwid.AttrMap(button, 'edit', 'editfocus')
-        body.append(widget)
-    return urwid.SimpleFocusListWalker(body)
+    title = u'You chose %s\n' % choice
+    return createSimpleFocusListWalker(title, ok_cancel)
 
 class Browse(urwid.WidgetWrap):
     def __init__(self, title, walker):
@@ -97,22 +95,18 @@ class Browse(urwid.WidgetWrap):
         self.frame = urwid.Frame( self.listbox)
         urwid.WidgetWrap.__init__(self, self.frame)
 
-    def get_widget_label(self, position):
-        widget = self.walker[position]
-        while widget.focus:
-            widget = widget.focus
-        widget = widget.base_widget;
-        return widget.get_label()
-
     def get_elt(self):
         #f.write("get_elt %s\n" % type(self.walker))
         if type(self.walker) == DuplicatesWalker:
             return self.walker.selection()
         if type(self.walker) == DuplicatesWithFilenamesWalker:
             return self.walker.selection()
+        elif len(browse_stack) == 2:
+            return options[self.walker.focus - 2]
+        elif len(browse_stack) == 3:
+            return ok_cancel[self.walker.focus - 2]
         else:
-            f.write("get_elt focus %d\n" % self.walker.focus)
-            return self.get_widget_label(self.walker.focus)
+            assert(False);
 
     def keypress(self, size, key):
         #f.write('Browse keypress %s\n' % str(key))
