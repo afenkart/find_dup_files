@@ -105,13 +105,13 @@ class Browse(urwid.WidgetWrap):
         return widget.get_label()
 
     def get_elt(self):
-        #f.write("%s\n" % type(self.walker))
-        f.write("get_elt %s\n" % type(self.walker))
+        #f.write("get_elt %s\n" % type(self.walker))
         if type(self.walker) == DuplicatesWalker:
             return self.walker.selection()
         if type(self.walker) == DuplicatesWithFilenamesWalker:
             return self.walker.selection()
         else:
+            f.write("get_elt focus %d\n" % self.walker.focus)
             return self.get_widget_label(self.walker.focus)
 
     def keypress(self, size, key):
@@ -188,8 +188,8 @@ palette = [
     ]
 
 top = urwid.Overlay(main, urwid.SolidFill(u'\N{MEDIUM SHADE}'),
-    align='center', width=('relative', 80),
-    valign='middle', height=('relative', 80),
+    align='center', width=('relative', 100),
+    valign='middle', height=('relative', 100),
     min_width=20, min_height=9)
 urwid.MainLoop(top, palette, unhandled_input=unhandled_input).run()
 #loop = urwid.MainLoop(fill, unhandled_input=show_or_exit)
