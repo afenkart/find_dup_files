@@ -165,7 +165,7 @@ def browse_out():
 def exit_program(button):
     raise urwid.ExitMainLoop()
 
-main = urwid.Padding(Browse(u'Pythons', DuplicatesWalker()), left=2, right=2)
+main = urwid.Padding(Browse(u'Pythons', DuplicatesWalker()), left=0, right=0)
 
 def unhandled_input(k):
     f.write('unhandled_input\n')
