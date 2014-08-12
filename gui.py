@@ -14,55 +14,41 @@ data = {
     'duplicates': Storage.duplicates(1024 * 1024).fetchall()
 }
 
-class DuplicatesWalker(urwid.ListWalker):
+class MyListWalker(urwid.ListWalker):
+    def __init__(self, data, render_fun):
+        self.data = data
+        self.render_fun = render_fun
+        self.focus = 0
+
+    def set_focus(self, focus):
+        self.focus = focus
+        self._modified()
+
+    def next_position(self, idx):
+        if idx >= len(self.data) - 1:
+            raise IndexError
+        return (idx + 1)
+
+    def prev_position(self, idx):
+        if (idx < 1):
+            raise IndexError
+        return idx - 1
+
+    def __getitem__(self, idx):
+        cur = self.data[idx]
+        button = urwid.Button(self.render_fun(self.data[idx]))
+        return urwid.AttrMap(button, 'edit', 'editfocus')
+
+class DuplicatesWalker(MyListWalker):
     def __init__(self, duplicates):
-        self.duplicates = duplicates
-        self.focus = 0
+        render_fun = lambda x: "%d %d %s" % (x['Count'], x['st_size'],
+                                             x['Name'])
+        MyListWalker.__init__(self, duplicates, render_fun)
 
-    def set_focus(self, focus):
-        self.focus = focus
-        self._modified()
- 
-    def next_position(self, idx):
-        if idx >= len(self.duplicates) - 1:
-            raise IndexError
-        return (idx + 1)
-
-    def prev_position(self, idx):
-        if (idx < 1):
-            raise IndexError
-        return idx - 1
-
-    def __getitem__(self, idx):
-        cur = self.duplicates[idx]
-        button = urwid.Button("%d %d %s" % (cur['Count'], cur['st_size'],
-                                            cur['Name']))
-        return urwid.AttrMap(button, 'edit', 'editfocus')
-
-
-class DuplicatesWithFilenamesWalker(urwid.ListWalker):
+class DuplicatesWithFilenamesWalker(MyListWalker):
     def __init__(self, filenames):
-        self.focus = 0
-        self.filenames = filenames
-
-    def set_focus(self, focus):
-        self.focus = focus
-        self._modified()
-
-    def next_position(self, idx):
-        if idx >= len(self.filenames) - 1:
-            raise IndexError
-        return (idx + 1)
-
-    def prev_position(self, idx):
-        if (idx < 1):
-            raise IndexError
-        return idx - 1
-
-    def __getitem__(self, idx):
-        cur = self.filenames[idx]
-        button = urwid.Button("%d %s" % (cur['st_inode'], cur['Name']))
-        return urwid.AttrMap(button, 'edit', 'editfocus')
+        render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
+        MyListWalker.__init__(self, filenames, render_fun)
 
 def createSimpleFocusListWalker(title, elts):
     body = [urwid.Text(title), urwid.Divider()]
