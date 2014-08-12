@@ -6,13 +6,17 @@ import re
 
 f = open('/tmp/log_gui.txt', 'w+', False)
 
-browse_stack = []
 Storage = storage.Storage(memory=False)
 Storage.create_indices()
 
+browse_stack = []
+data = {
+    'duplicates': Storage.duplicates(1024 * 1024).fetchall()
+}
+
 class DuplicatesWalker(urwid.ListWalker):
-    def __init__(self):
-        self.duplicates = Storage.duplicates(1024 * 1024).fetchall()
+    def __init__(self, duplicates):
+        self.duplicates = duplicates
         self.focus = 0
 
     def set_focus(self, focus):
@@ -34,10 +38,6 @@ class DuplicatesWalker(urwid.ListWalker):
         button = urwid.Button("%d %d %s" % (cur['Count'], cur['st_size'],
                                             cur['Name']))
         return urwid.AttrMap(button, 'edit', 'editfocus')
-
-    def selection(self):
-        idx = self.focus
-        return self.duplicates[idx]
 
 
 class DuplicatesWithFilenamesWalker(urwid.ListWalker):
@@ -94,8 +94,8 @@ class Browse(urwid.WidgetWrap):
 
     def get_elt(self):
         #f.write("get_elt %s\n" % type(self.walker))
-        if type(self.walker) == DuplicatesWalker:
-            return self.walker.selection()
+        if len(browse_stack) == 0:
+            return data['duplicates'][self.walker.focus]
         if type(self.walker) == DuplicatesWithFilenamesWalker:
             return self.walker.selection()
         elif len(browse_stack) == 2:
@@ -113,9 +113,6 @@ class Browse(urwid.WidgetWrap):
             browse_out();
         else:
             return self.frame.keypress(size, key)
-
-
-data = {}
 
 def browse_into(widget, choice):
     browse_stack.append(widget)
@@ -159,7 +156,8 @@ def browse_out():
 def exit_program(button):
     raise urwid.ExitMainLoop()
 
-main = urwid.Padding(Browse(u'Pythons', DuplicatesWalker()), left=0, right=0)
+main = urwid.Padding(Browse(u'Pythons', DuplicatesWalker(data['duplicates'])),
+                     left=0, right=0)
 
 def unhandled_input(k):
     f.write('unhandled_input\n')
