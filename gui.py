@@ -64,10 +64,6 @@ class DuplicatesWithFilenamesWalker(urwid.ListWalker):
         button = urwid.Button("%d %s" % (cur['st_inode'], cur['Name']))
         return urwid.AttrMap(button, 'edit', 'editfocus')
 
-    def selection(self):
-        idx = self.focus
-        return self.filenames[idx]['Name']
-
 def createSimpleFocusListWalker(title, elts):
     body = [urwid.Text(title), urwid.Divider()]
     for c in elts:
@@ -96,8 +92,9 @@ class Browse(urwid.WidgetWrap):
         #f.write("get_elt %s\n" % type(self.walker))
         if len(browse_stack) == 0:
             return data['duplicates'][self.walker.focus]
-        if type(self.walker) == DuplicatesWithFilenamesWalker:
-            return self.walker.selection()
+        if len(browse_stack) == 1:
+            f.write("get_elt %s\n" % data['filenames'][self.walker.focus])
+            return data['filenames'][self.walker.focus]['Name']
         elif len(browse_stack) == 2:
             return options[self.walker.focus - 2]
         elif len(browse_stack) == 3:
@@ -120,9 +117,9 @@ def browse_into(widget, choice):
     if (len(browse_stack) == 1):
         data['crc32'] = choice['crc32']
         data['sha1'] = choice['sha1']
-        filenames = Storage.files_by_crc32(data['crc32']).fetchall()
+        data['filenames'] = Storage.files_by_crc32(data['crc32']).fetchall()
         main.original_widget = Browse(choice,
-                                      DuplicatesWithFilenamesWalker(filenames));
+                                      DuplicatesWithFilenamesWalker(data['filenames']))
     elif (len(browse_stack) == 2):
         filename = choice
         data['filename'] = filename
