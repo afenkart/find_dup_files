@@ -13,32 +13,32 @@ Storage.create_indices()
 class DuplicatesWalker(urwid.ListWalker):
     def __init__(self):
         self.duplicates = Storage.duplicates(1024 * 1024).fetchall()
-        self.focus = (0, self.duplicates[0])
-
-    def _get_at_pos(self, focus):
-        (idx, invalid) = focus
-        cur = self.duplicates[idx]
-        button = urwid.Button("%d %d %s" % (cur['Count'], cur['st_size'], cur['Name']))
-        return urwid.AttrMap(button, 'edit', 'editfocus'), (idx, cur)
-
-    def get_focus(self): 
-        return self._get_at_pos(self.focus)
+        self.focus = 0
 
     def set_focus(self, focus):
         self.focus = focus
         self._modified()
  
-    def get_next(self, focus):
-        (idx, elt) = focus
+    def next_position(self, idx):
         if idx >= len(self.duplicates) - 1:
-            return (None, None)
-        return self._get_at_pos((idx + 1, None))
+            raise IndexError
+        return (idx + 1)
 
-    def get_prev(self, focus):
-        (idx, elt) = focus
+    def prev_position(self, idx):
         if (idx < 1):
-            return (None, None)
-        return self._get_at_pos((idx - 1, None))
+            raise IndexError
+        return idx - 1
+
+    def __getitem__(self, idx):
+        cur = self.duplicates[idx]
+        button = urwid.Button("%d %d %s" % (cur['Count'], cur['st_size'],
+                                            cur['Name']))
+        return urwid.AttrMap(button, 'edit', 'editfocus')
+
+    def selection(self):
+        idx = self.focus
+        return self.duplicates[idx]
+
 
 class DuplicatesWithFilenamesWalker(urwid.ListWalker):
     def __init__(self, crc32, sha1):
@@ -108,8 +108,7 @@ class Browse(urwid.WidgetWrap):
         #f.write("%s\n" % type(self.walker))
         f.write("get_elt %s\n" % type(self.walker))
         if type(self.walker) == DuplicatesWalker:
-            (idx, elt) = self.walker.focus
-            return elt
+            return self.walker.selection()
         if type(self.walker) == DuplicatesWithFilenamesWalker:
             return self.walker.selection()
         else:
