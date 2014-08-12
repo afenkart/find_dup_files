@@ -189,7 +189,7 @@ class Storage:
         # search duplicates on Inodes, will not count hardlinks, which is
         # confusing if the top level view in the gui says duplicate count is 2,
         # but in the detail view there are suddenly 3 files
-        return cur.execute("Select COUNT() Count, * FROM FileInodeView WHERE st_size > ? GROUP BY crc32 HAVING COUNT(*) > 1 ORDER BY st_size desc, count desc, name", (size,))
+        return cur.execute("Select COUNT() Count, * FROM (SELECT * FROM FileInodeView WHERE st_size > ? GROUP BY st_inode) GROUP BY crc32 HAVING COUNT(*) > 1 ORDER BY st_size desc, count desc, name", (size,))
 
     def remove(self, sha1, name):
         """
