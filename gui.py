@@ -61,7 +61,7 @@ class DuplicatesWithFilenamesWalker(urwid.ListWalker):
         (idx, elt) = position
         if (idx < 1):
             raise IndexError
-        return (idx - 1, (self.filenames[idx - 1], self.crc32, self.sha1))
+        return (idx - 1, (self.filenames[idx - 1]['Name'], self.crc32, self.sha1))
 
     def __getitem__(self, focus):
         (idx, ignore) = focus
