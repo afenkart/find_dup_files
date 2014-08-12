@@ -4,7 +4,7 @@ import storage
 import sys, os
 import re
 
-f = open('/tmp/log_gui.txt', 'w+')
+f = open('/tmp/log_gui.txt', 'w+', False)
 
 browse_stack = []
 Storage = storage.Storage(memory=False)
@@ -114,7 +114,6 @@ class Browse(urwid.WidgetWrap):
 
     def keypress(self, size, key):
         #f.write('Browse keypress %s\n' % str(key))
-        #f.flush()
         if key == 'right' or key == 'enter':
             browse_into(self, self.get_elt())
         elif key == 'left':
