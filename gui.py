@@ -41,11 +41,9 @@ class DuplicatesWalker(urwid.ListWalker):
 
 
 class DuplicatesWithFilenamesWalker(urwid.ListWalker):
-    def __init__(self, crc32, sha1):
-        self.crc32 = crc32
-        self.sha1 = sha1
-        self.filenames = Storage.files_by_crc32(crc32).fetchall()
+    def __init__(self, filenames):
         self.focus = 0
+        self.filenames = filenames
 
     def set_focus(self, focus):
         self.focus = focus
@@ -68,8 +66,7 @@ class DuplicatesWithFilenamesWalker(urwid.ListWalker):
 
     def selection(self):
         idx = self.focus
-        return (self.filenames[idx]['Name'], self.crc32, self.sha1)
-
+        return self.filenames[idx]['Name']
 
 def createSimpleFocusListWalker(title, elts):
     body = [urwid.Text(title), urwid.Divider()]
@@ -80,7 +77,7 @@ def createSimpleFocusListWalker(title, elts):
     return urwid.SimpleFocusListWalker(body)
 
 options = u'see remove hard-link'.split()
-def createChoicesWalker(filename, crc32, sha1):
+def createChoicesWalker(filename):
     return createSimpleFocusListWalker(filename, options)
 
 ok_cancel = ['Ok', 'Cancel']
@@ -118,36 +115,33 @@ class Browse(urwid.WidgetWrap):
             return self.frame.keypress(size, key)
 
 
-class store:
-    filename = ""
-    sha1 = ''
-    action = ""
+data = {}
 
 def browse_into(widget, choice):
     browse_stack.append(widget)
     f.write('browse_into %s level %d\n' % (choice, len(browse_stack)))
     if (len(browse_stack) == 1):
+        data['crc32'] = choice['crc32']
+        data['sha1'] = choice['sha1']
+        filenames = Storage.files_by_crc32(data['crc32']).fetchall()
         main.original_widget = Browse(choice,
-                                      DuplicatesWithFilenamesWalker(choice['crc32'],
-                                                                    choice['sha1']))
+                                      DuplicatesWithFilenamesWalker(filenames));
     elif (len(browse_stack) == 2):
-        (filename, crc32, sha1) = choice
-        store.filename = filename
-        store.sha1 = sha1
-        main.original_widget = Browse(choice, createChoicesWalker(filename,
-                                                                  crc32, sha1))
+        filename = choice
+        data['filename'] = filename
+        main.original_widget = Browse(choice, createChoicesWalker(filename))
     elif (len(browse_stack) == 3):
         action = choice
-        store.action = choice
+        data['action'] = choice
         if (action == "see"):
-            f.write("see %s\n" % re.escape(store.filename))
-            os.system("see %s" % re.escape(store.filename))
+            f.write("see %s\n" % re.escape(data['filename']))
+            os.system("see %s" % re.escape(data['filename']))
             browse_stack.pop()
         else:
             main.original_widget = Browse(choice, createConfirmAction(action))
     elif (len(browse_stack) == 4):
         ok_cancel = (choice == "Ok")
-        f.write("execute %s %s\n" % (store.action, store.filename))
+        f.write("execute %s %s\n" % (data['action'], store['filename']))
         browse_stack.pop()
         browse_stack.pop()
         main.original_widget = browse_stack.pop()
