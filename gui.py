@@ -61,17 +61,16 @@ class DuplicatesWithFilenamesWalker(MyListWalker):
         MyListWalker.__init__(self, filenames, render_fun)
 
 def createSimpleFocusListWalker(title, elts):
-    body = [urwid.Text(title), urwid.Divider()]
-    for c in elts:
-        button = urwid.Button(c)
-        widget = urwid.AttrMap(button, 'edit', 'editfocus')
-        body.append(widget)
+    body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
+    body.append(urwid.Divider())
+    body.extend([MenuButton(c, None) for c in elts])
     return urwid.SimpleFocusListWalker(body)
 
 class ContextMenu(urwid.WidgetWrap):
     def __init__(self, title, filename):
         self.options = u'see remove hard-link'.split()
-        self.walker = createSimpleFocusListWalker(filename, self.options)
+        self.walker = createSimpleFocusListWalker(strip_prefix(filename),
+                                                  self.options)
         self.listbox = urwid.ListBox(self.walker)
         self.frame = urwid.Overlay(self.listbox,
                                    browse_stack[-1],
@@ -190,7 +189,7 @@ palette = [
     ('editfocus','yellow','dark cyan', 'bold'),
     ('foot','light gray', 'black'),
     ('key','light cyan', 'black', 'underline'),
-    ('title', 'white', 'black',),
+    ('title', 'white', 'dark blue',),
     ('selected', 'white', 'dark blue'),
     ]
 
