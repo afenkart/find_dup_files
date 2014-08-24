@@ -14,6 +14,10 @@ data = {
     'duplicates': Storage.duplicates(1024 * 1024).fetchall()
 }
 
+def strip_prefix(filename):
+    skip = len("/home/afenkart/")
+    return filename[skip:]
+
 class MenuButton(urwid.Button):
     def __init__(self, caption, callback):
         super(MenuButton, self).__init__("")
@@ -47,9 +51,8 @@ class MyListWalker(urwid.ListWalker):
 
 class DuplicatesWalker(MyListWalker):
     def __init__(self, duplicates):
-        skip = len("/home/afenkart")
         render_fun = lambda x: "%2d %7dk %s" % (x['Count'], x['st_size']/1000,
-                                                x['Name'][skip:])
+                                                strip_prefix(x['Name']))
         MyListWalker.__init__(self, duplicates, render_fun)
 
 class DuplicatesWithFilenamesWalker(MyListWalker):
