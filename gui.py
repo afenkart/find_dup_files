@@ -128,7 +128,7 @@ def browse_into(widget, choice):
             main.original_widget = Browse(choice, createConfirmAction(action))
     elif (len(browse_stack) == 4):
         ok_cancel = (choice == "Ok")
-        f.write("execute %s %s\n" % (data['action'], store['filename']))
+        f.write("execute %s %s\n" % (data['action'], data['filename']))
         browse_stack.pop()
         browse_stack.pop()
         main.original_widget = browse_stack.pop()
