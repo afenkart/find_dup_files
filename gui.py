@@ -60,7 +60,7 @@ class DuplicatesWithFilenamesWalker(MyListWalker):
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
         MyListWalker.__init__(self, filenames, render_fun)
 
-def createSimpleFocusListWalker(title, elts):
+def createSimpleListWalker(title, elts):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
     body.append(urwid.Divider())
     body.extend([MenuButton(c, None) for c in elts])
@@ -69,8 +69,8 @@ def createSimpleFocusListWalker(title, elts):
 class ContextMenu(urwid.WidgetWrap):
     def __init__(self, title, filename):
         self.options = u'see remove hard-link'.split()
-        self.walker = createSimpleFocusListWalker(strip_prefix(filename),
-                                                  self.options)
+        self.walker = createSimpleListWalker(strip_prefix(filename),
+                                             self.options)
         self.listbox = urwid.ListBox(self.walker)
         self.frame = urwid.Overlay(self.listbox,
                                    browse_stack[-1],
@@ -85,10 +85,24 @@ class ContextMenu(urwid.WidgetWrap):
         if not presenter.keypress(key, self):
             return self.frame.keypress(size, key)
 
-ok_cancel = ['Ok', 'Cancel']
-def createConfirmAction(choice):
-    title = u'You chose %s\n' % choice
-    return createSimpleFocusListWalker(title, ok_cancel)
+class ConfirmAction(urwid.WidgetWrap):
+    def __init__(self, action):
+        title = u'You chose %s\n' % action
+        self.ok_cancel = ['Ok', 'Cancel']
+        self.walker = createSimpleListWalker(title, self.ok_cancel)
+        self.listbox = urwid.ListBox(self.walker)
+        self.frame = urwid.Overlay(self.listbox,
+                                   browse_stack[-1],
+                                   align='center', width=('relative', 80),
+                                   valign='middle', height=('relative', 60),
+                                   min_width=20, min_height=9)
+        urwid.WidgetWrap.__init__(self, self.frame)
+
+    def get_elt(self):
+        return self.ok_cancel[self.walker.focus - 2]
+    def keypress(self, size, key):
+        if not presenter.keypress(key, self):
+            return self.frame.keypress(size, key)
 
 class Browse(urwid.WidgetWrap):
     def __init__(self, title, walker):
@@ -104,10 +118,6 @@ class Browse(urwid.WidgetWrap):
         if len(browse_stack) == 1:
             f.write("get_elt %s\n" % data['filenames'][self.walker.focus])
             return data['filenames'][self.walker.focus]['Name']
-        elif len(browse_stack) == 2:
-            assert(False)
-        elif len(browse_stack) == 3:
-            return ok_cancel[self.walker.focus - 2]
         else:
             assert(False)
 
@@ -154,7 +164,7 @@ def browse_into(widget, choice):
             os.system("see %s" % re.escape(data['filename']))
             browse_stack.pop()
         else:
-            main.original_widget = Browse(choice, createConfirmAction(action))
+            main.original_widget = ConfirmAction(action)
     elif (len(browse_stack) == 4):
         ok_cancel = (choice == "Ok")
         f.write("execute %s %s\n" % (data['action'], data['filename']))
