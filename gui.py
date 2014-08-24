@@ -70,7 +70,11 @@ class ContextMenu(urwid.WidgetWrap):
         self.options = u'see remove hard-link'.split()
         self.walker = createSimpleFocusListWalker(filename, self.options)
         self.listbox = urwid.ListBox(self.walker)
-        self.frame = urwid.Frame(self.listbox)
+        self.frame = urwid.Overlay(self.listbox,
+                                   browse_stack[-1],
+                                   align='center', width=('relative', 80),
+                                   valign='middle', height=('relative', 60),
+                                   min_width=20, min_height=9)
         urwid.WidgetWrap.__init__(self, self.frame)
 
     def get_elt(self):
@@ -187,9 +191,4 @@ palette = [
     ('selected', 'white', 'dark blue'),
     ]
 
-top = urwid.Overlay(main, urwid.SolidFill(u'\N{MEDIUM SHADE}'),
-    align='center', width=('relative', 100),
-    valign='middle', height=('relative', 100),
-    min_width=20, min_height=9)
-urwid.MainLoop(top, palette, unhandled_input=unhandled_input).run()
-#loop = urwid.MainLoop(fill, unhandled_input=show_or_exit)
+urwid.MainLoop(main, palette, unhandled_input=unhandled_input).run()
