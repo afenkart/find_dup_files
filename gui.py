@@ -41,8 +41,9 @@ class MyListWalker(urwid.ListWalker):
 
 class DuplicatesWalker(MyListWalker):
     def __init__(self, duplicates):
-        render_fun = lambda x: "%d %d %s" % (x['Count'], x['st_size'],
-                                             x['Name'])
+        skip = len("/home/afenkart")
+        render_fun = lambda x: "%2d %7dk %s" % (x['Count'], x['st_size']/1000,
+                                                x['Name'][skip:])
         MyListWalker.__init__(self, duplicates, render_fun)
 
 class DuplicatesWithFilenamesWalker(MyListWalker):
