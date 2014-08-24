@@ -65,9 +65,19 @@ def createSimpleFocusListWalker(title, elts):
         body.append(widget)
     return urwid.SimpleFocusListWalker(body)
 
-options = u'see remove hard-link'.split()
-def createChoicesWalker(filename):
-    return createSimpleFocusListWalker(filename, options)
+class ContextMenu(urwid.WidgetWrap):
+    def __init__(self, title, filename):
+        self.options = u'see remove hard-link'.split()
+        self.walker = createSimpleFocusListWalker(filename, self.options)
+        self.listbox = urwid.ListBox(self.walker)
+        self.frame = urwid.Frame(self.listbox)
+        urwid.WidgetWrap.__init__(self, self.frame)
+
+    def get_elt(self):
+        return self.options[self.walker.focus - 2]
+    def keypress(self, size, key):
+        if not presenter.keypress(key, self):
+            return self.frame.keypress(size, key)
 
 ok_cancel = ['Ok', 'Cancel']
 def createConfirmAction(choice):
@@ -78,7 +88,7 @@ class Browse(urwid.WidgetWrap):
     def __init__(self, title, walker):
         self.walker = walker
         self.listbox = urwid.ListBox(self.walker)
-        self.frame = urwid.Frame( self.listbox)
+        self.frame = urwid.Frame(self.listbox)
         urwid.WidgetWrap.__init__(self, self.frame)
 
     def get_elt(self):
@@ -89,11 +99,11 @@ class Browse(urwid.WidgetWrap):
             f.write("get_elt %s\n" % data['filenames'][self.walker.focus])
             return data['filenames'][self.walker.focus]['Name']
         elif len(browse_stack) == 2:
-            return options[self.walker.focus - 2]
+            assert(False)
         elif len(browse_stack) == 3:
             return ok_cancel[self.walker.focus - 2]
         else:
-            assert(False);
+            assert(False)
 
     def keypress(self, size, key):
         #f.write('Browse keypress %s\n' % str(key))
@@ -103,6 +113,19 @@ class Browse(urwid.WidgetWrap):
             browse_out();
         else:
             return self.frame.keypress(size, key)
+
+class Presenter:
+    def keypress(self, key, widget):
+        if key == 'right' or key == 'enter':
+            browse_into(widget, widget.get_elt())
+        elif key == 'left':
+            browse_out();
+        else:
+            return False
+        return True
+
+presenter = Presenter()
+
 
 def browse_into(widget, choice):
     browse_stack.append(widget)
@@ -116,7 +139,7 @@ def browse_into(widget, choice):
     elif (len(browse_stack) == 2):
         filename = choice
         data['filename'] = filename
-        main.original_widget = Browse(choice, createChoicesWalker(filename))
+        main.original_widget = ContextMenu(choice, filename)
     elif (len(browse_stack) == 3):
         action = choice
         data['action'] = choice
