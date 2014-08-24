@@ -14,6 +14,13 @@ data = {
     'duplicates': Storage.duplicates(1024 * 1024).fetchall()
 }
 
+class MenuButton(urwid.Button):
+    def __init__(self, caption, callback):
+        super(MenuButton, self).__init__("")
+        #urwid.connect_signal(self, 'click', callback)
+        self._w = urwid.AttrMap(urwid.SelectableIcon(
+            [u'  \N{BULLET} ', caption], 2), 'None', 'selected')
+
 class MyListWalker(urwid.ListWalker):
     def __init__(self, data, render_fun):
         self.data = data
@@ -36,8 +43,7 @@ class MyListWalker(urwid.ListWalker):
 
     def __getitem__(self, idx):
         cur = self.data[idx]
-        button = urwid.Button(self.render_fun(self.data[idx]))
-        return urwid.AttrMap(button, 'edit', 'editfocus')
+        return MenuButton(self.render_fun(self.data[idx]), None)
 
 class DuplicatesWalker(MyListWalker):
     def __init__(self, duplicates):
@@ -155,6 +161,7 @@ palette = [
     ('foot','light gray', 'black'),
     ('key','light cyan', 'black', 'underline'),
     ('title', 'white', 'black',),
+    ('selected', 'white', 'dark blue'),
     ]
 
 top = urwid.Overlay(main, urwid.SolidFill(u'\N{MEDIUM SHADE}'),
