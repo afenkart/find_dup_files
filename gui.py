@@ -55,10 +55,16 @@ class DuplicatesWalker(MyListWalker):
                                                 strip_prefix(x['Name']))
         MyListWalker.__init__(self, duplicates, render_fun)
 
+    def get_elt(self):
+        return data['duplicates'][self.focus]
+
 class DuplicatesWithFilenamesWalker(MyListWalker):
     def __init__(self, filenames):
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
         MyListWalker.__init__(self, filenames, render_fun)
+
+    def get_elt(self):
+        return data['filenames'][self.focus]['Name']
 
 def createSimpleListWalker(title, elts):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
@@ -87,7 +93,7 @@ class ContextMenu(urwid.WidgetWrap):
 
 class ConfirmAction(urwid.WidgetWrap):
     def __init__(self, action):
-        title = u'You chose %s\n' % action
+        title = u'You chose %s' % action
         self.ok_cancel = ['Ok', 'Cancel']
         self.walker = createSimpleListWalker(title, self.ok_cancel)
         self.listbox = urwid.ListBox(self.walker)
@@ -112,22 +118,9 @@ class Browse(urwid.WidgetWrap):
         urwid.WidgetWrap.__init__(self, self.frame)
 
     def get_elt(self):
-        #f.write("get_elt %s\n" % type(self.walker))
-        if len(browse_stack) == 0:
-            return data['duplicates'][self.walker.focus]
-        if len(browse_stack) == 1:
-            f.write("get_elt %s\n" % data['filenames'][self.walker.focus])
-            return data['filenames'][self.walker.focus]['Name']
-        else:
-            assert(False)
-
+        return self.walker.get_elt()
     def keypress(self, size, key):
-        #f.write('Browse keypress %s\n' % str(key))
-        if key == 'right' or key == 'enter':
-            browse_into(self, self.get_elt())
-        elif key == 'left':
-            browse_out();
-        else:
+        if not presenter.keypress(key, self):
             return self.frame.keypress(size, key)
 
 class Presenter:
