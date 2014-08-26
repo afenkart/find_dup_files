@@ -21,15 +21,16 @@ def strip_prefix(filename):
 class MenuButton(urwid.Button):
     def __init__(self, caption, callback):
         super(MenuButton, self).__init__("")
-        #urwid.connect_signal(self, 'click', callback)
+        urwid.connect_signal(self, 'click', callback)
         self._w = urwid.AttrMap(urwid.SelectableIcon(
             [" ", caption], 2), 'None', 'selected')
 
 class MyListWalker(urwid.ListWalker):
-    def __init__(self, data, render_fun):
+    def __init__(self, data, render_fun, callback):
         self.data = data
         self.render_fun = render_fun
         self.focus = 0
+        self.callback = callback
 
     def set_focus(self, focus):
         self.focus = focus
@@ -47,24 +48,30 @@ class MyListWalker(urwid.ListWalker):
 
     def __getitem__(self, idx):
         cur = self.data[idx]
-        return MenuButton(self.render_fun(self.data[idx]), None)
+        return MenuButton(self.render_fun(self.data[idx]), self.callback)
 
 class DuplicatesWalker(MyListWalker):
     def __init__(self, duplicates):
         render_fun = lambda x: "%2d %7dk %s" % (x['Count'], x['st_size']/1000,
                                                 strip_prefix(x['Name']))
-        MyListWalker.__init__(self, duplicates, render_fun)
+        MyListWalker.__init__(self, duplicates, render_fun, self.callback)
 
     def get_elt(self):
         return data['duplicates'][self.focus]
 
+    def callback(self, widget):
+        f.write("button callback %r\n")
+
 class DuplicatesWithFilenamesWalker(MyListWalker):
     def __init__(self, filenames):
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
-        MyListWalker.__init__(self, filenames, render_fun)
+        MyListWalker.__init__(self, filenames, render_fun, self.callback)
 
     def get_elt(self):
         return data['filenames'][self.focus]['Name']
+
+    def callback(self, widget):
+        f.write("button callback\n")
 
 def createSimpleListWalker(title, elts):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
