@@ -87,9 +87,6 @@ class ContextMenu(urwid.WidgetWrap):
 
     def get_elt(self):
         return self.options[self.walker.focus - 2]
-    def keypress(self, size, key):
-        if not presenter.keypress(key, self):
-            return self.frame.keypress(size, key)
 
 class ConfirmAction(urwid.WidgetWrap):
     def __init__(self, action):
@@ -106,9 +103,6 @@ class ConfirmAction(urwid.WidgetWrap):
 
     def get_elt(self):
         return self.ok_cancel[self.walker.focus - 2]
-    def keypress(self, size, key):
-        if not presenter.keypress(key, self):
-            return self.frame.keypress(size, key)
 
 class Browse(urwid.WidgetWrap):
     def __init__(self, title, walker):
@@ -119,19 +113,8 @@ class Browse(urwid.WidgetWrap):
 
     def get_elt(self):
         return self.walker.get_elt()
-    def keypress(self, size, key):
-        if not presenter.keypress(key, self):
-            return self.frame.keypress(size, key)
 
 class Presenter:
-    def keypress(self, key, widget):
-        if key == 'right' or key == 'enter':
-            browse_into(widget, widget.get_elt())
-        elif key == 'left':
-            browse_out();
-        else:
-            return False
-        return True
 
 presenter = Presenter()
 
@@ -181,10 +164,16 @@ def exit_program(button):
 main = urwid.Padding(Browse(u'Pythons', DuplicatesWalker(data['duplicates'])),
                      left=0, right=0)
 
-def unhandled_input(k):
-    f.write('unhandled_input\n')
-    if (k == 'q'):
+def unhandled_input(key):
+    if key == 'right' or key == 'enter':
+        widget = main.original_widget
+        browse_into(widget, widget.get_elt())
+    elif key == 'left':
+        browse_out();
+    elif (key == 'q'):
         raise urwid.ExitMainLoop()
+    else:
+        f.write('unhandled_input\n')
 
 palette = [
     ('body','black','dark cyan', 'standout'),
