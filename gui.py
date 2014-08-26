@@ -11,7 +11,10 @@ Storage.create_indices()
 
 browse_stack = []
 data = {
-    'duplicates': Storage.duplicates(1024 * 1024).fetchall()
+    'duplicates': Storage.duplicates(1024 * 1024).fetchall(),
+    'hashes' : None,
+    'filename' : None,
+    'action' : None
 }
 
 def strip_prefix(filename):
@@ -61,19 +64,25 @@ class DuplicatesWalker(urwid.WidgetWrap):
         return data['duplicates'][self.walker.focus]
 
     def callback(self, widget):
-        f.write("button callback %r\n" % self._w.focus_position)
+        index = self._w.focus_position
+        row = data['duplicates'][index]
+        data['hashes'] = (row['crc32'], row['sha1'])
+        f.write("button callback (%r/%r)\n" % data['hashes'])
 
 class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
     def __init__(self, filenames):
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
         self.walker = MyListWalker(filenames, render_fun, self.callback)
+        self.filenames = filenames
         urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
 
     def get_elt(self):
         return data['filenames'][self.walker.focus]['Name']
 
     def callback(self, widget):
-        f.write("button callback %r\n" % self._w.focus_position)
+        index = self._w.focus_position
+        data['filename'] = self.filenames[index]['Name']
+        f.write("button callback %r\n" % data['filename'])
 
 def createSimpleListWalker(title, elts, callback):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
@@ -99,7 +108,8 @@ class ContextMenu(urwid.WidgetWrap):
 
     def callback(self, widget):
         # self.walker.focus - 2
-        f.write("button callback %r\n" % self._w.focus.focus_position)
+        data['action'] = self.options[self.walker.focus - 2]
+        f.write("button callback %r\n" % data['action'])
 
 class ConfirmAction(urwid.WidgetWrap):
     def __init__(self, action):
