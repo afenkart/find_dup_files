@@ -50,42 +50,44 @@ class MyListWalker(urwid.ListWalker):
         cur = self.data[idx]
         return MenuButton(self.render_fun(self.data[idx]), self.callback)
 
-class DuplicatesWalker(MyListWalker):
+class DuplicatesWalker(urwid.WidgetWrap):
     def __init__(self, duplicates):
         render_fun = lambda x: "%2d %7dk %s" % (x['Count'], x['st_size']/1000,
                                                 strip_prefix(x['Name']))
-        MyListWalker.__init__(self, duplicates, render_fun, self.callback)
+        self.walker = MyListWalker(duplicates, render_fun, self.callback)
+        urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
 
     def get_elt(self):
-        return data['duplicates'][self.focus]
+        return data['duplicates'][self.walker.focus]
 
     def callback(self, widget):
-        f.write("button callback %r\n")
+        f.write("button callback %r\n" % self._w.focus_position)
 
-class DuplicatesWithFilenamesWalker(MyListWalker):
+class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
     def __init__(self, filenames):
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
-        MyListWalker.__init__(self, filenames, render_fun, self.callback)
+        self.walker = MyListWalker(filenames, render_fun, self.callback)
+        urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
 
     def get_elt(self):
-        return data['filenames'][self.focus]['Name']
+        return data['filenames'][self.walker.focus]['Name']
 
     def callback(self, widget):
-        f.write("button callback\n")
+        f.write("button callback %r\n" % self._w.focus_position)
 
-def createSimpleListWalker(title, elts):
+def createSimpleListWalker(title, elts, callback):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
     body.append(urwid.Divider())
-    body.extend([MenuButton(c, None) for c in elts])
+    body.extend([MenuButton(c, callback) for c in elts])
     return urwid.SimpleFocusListWalker(body)
 
 class ContextMenu(urwid.WidgetWrap):
     def __init__(self, title, filename):
         self.options = u'see remove hard-link'.split()
         self.walker = createSimpleListWalker(strip_prefix(filename),
-                                             self.options)
-        self.listbox = urwid.ListBox(self.walker)
-        self.frame = urwid.Overlay(self.listbox,
+                                             self.options,
+                                             self.callback)
+        self.frame = urwid.Overlay(urwid.ListBox(self.walker),
                                    browse_stack[-1],
                                    align='center', width=('relative', 80),
                                    valign='middle', height=('relative', 60),
@@ -95,13 +97,16 @@ class ContextMenu(urwid.WidgetWrap):
     def get_elt(self):
         return self.options[self.walker.focus - 2]
 
+    def callback(self, widget):
+        # self.walker.focus - 2
+        f.write("button callback %r\n" % self._w.focus.focus_position)
+
 class ConfirmAction(urwid.WidgetWrap):
     def __init__(self, action):
         title = u'You chose %s' % action
         self.ok_cancel = ['Ok', 'Cancel']
         self.walker = createSimpleListWalker(title, self.ok_cancel)
-        self.listbox = urwid.ListBox(self.walker)
-        self.frame = urwid.Overlay(self.listbox,
+        self.frame = urwid.Overlay(urwid.ListBox(self.walker),
                                    browse_stack[-1],
                                    align='center', width=('relative', 80),
                                    valign='middle', height=('relative', 60),
@@ -111,17 +116,14 @@ class ConfirmAction(urwid.WidgetWrap):
     def get_elt(self):
         return self.ok_cancel[self.walker.focus - 2]
 
-class Browse(urwid.WidgetWrap):
-    def __init__(self, title, walker):
-        self.walker = walker
-        self.listbox = urwid.ListBox(self.walker)
-        self.frame = urwid.Frame(self.listbox)
-        urwid.WidgetWrap.__init__(self, self.frame)
-
-    def get_elt(self):
-        return self.walker.get_elt()
+    def callback(self, widget):
+        f.write("button callback %r\n" % self._w.focus.focus_position)
 
 class Presenter:
+    def browse_into(self):
+        pass
+    def browse_out(self):
+        pass
 
 presenter = Presenter()
 
@@ -133,8 +135,7 @@ def browse_into(widget, choice):
         data['crc32'] = choice['crc32']
         data['sha1'] = choice['sha1']
         data['filenames'] = Storage.files_by_crc32(data['crc32']).fetchall()
-        main.original_widget = Browse(choice,
-                                      DuplicatesWithFilenamesWalker(data['filenames']))
+        main.original_widget = DuplicatesWithFilenamesWalker(data['filenames'])
     elif (len(browse_stack) == 2):
         filename = choice
         data['filename'] = filename
@@ -165,11 +166,7 @@ def browse_out():
     else:
         print "browse_stack empty"
 
-def exit_program(button):
-    raise urwid.ExitMainLoop()
-
-main = urwid.Padding(Browse(u'Pythons', DuplicatesWalker(data['duplicates'])),
-                     left=0, right=0)
+main = urwid.Padding(DuplicatesWalker(data['duplicates']), left=0, right=0)
 
 def unhandled_input(key):
     if key == 'right' or key == 'enter':
