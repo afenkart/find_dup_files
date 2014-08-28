@@ -118,7 +118,8 @@ class ConfirmAction(urwid.WidgetWrap):
     def __init__(self, action):
         title = u'You chose %s' % action
         self.ok_cancel = ['Ok', 'Cancel']
-        self.walker = createSimpleListWalker(title, self.ok_cancel)
+        self.walker = createSimpleListWalker(title, self.ok_cancel,
+                                             self.callback)
         self.frame = urwid.Overlay(urwid.ListBox(self.walker),
                                    browse_stack[-1],
                                    align='center', width=('relative', 80),
