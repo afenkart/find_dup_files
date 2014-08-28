@@ -12,7 +12,7 @@ Storage.create_indices()
 browse_stack = []
 data = {
     'duplicates': Storage.duplicates(1024 * 1024).fetchall(),
-    'hashes' : None,
+    'hashes' : {},
     'filename' : None,
     'action' : None
 }
@@ -61,13 +61,14 @@ class DuplicatesWalker(urwid.WidgetWrap):
         urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
 
     def get_elt(self):
+        self.callback(None)
         return data['duplicates'][self.walker.focus]
 
     def callback(self, widget):
         index = self._w.focus_position
         row = data['duplicates'][index]
-        data['hashes'] = (row['crc32'], row['sha1'])
-        f.write("button callback (%r/%r)\n" % data['hashes'])
+        data['hashes'] = { 'crc32': row['crc32'], 'sha1': row['sha1']}
+        f.write("button callback %r\n" % data['hashes'])
 
 class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
     def __init__(self, filenames):
@@ -77,6 +78,7 @@ class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
         urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
 
     def get_elt(self):
+        self.callback(None)
         return data['filenames'][self.walker.focus]['Name']
 
     def callback(self, widget):
@@ -104,6 +106,7 @@ class ContextMenu(urwid.WidgetWrap):
         urwid.WidgetWrap.__init__(self, self.frame)
 
     def get_elt(self):
+        self.callback(None)
         return self.options[self.walker.focus - 2]
 
     def callback(self, widget):
@@ -140,19 +143,15 @@ presenter = Presenter()
 
 def browse_into(widget, choice):
     browse_stack.append(widget)
-    f.write('browse_into %s level %d\n' % (choice, len(browse_stack)))
+    f.write('browse_into level %d\n' % (len(browse_stack)))
     if (len(browse_stack) == 1):
-        data['crc32'] = choice['crc32']
-        data['sha1'] = choice['sha1']
-        data['filenames'] = Storage.files_by_crc32(data['crc32']).fetchall()
+        filenames = Storage.files_by_crc32(data['hashes']['crc32'])
+        data['filenames'] = filenames.fetchall()
         main.original_widget = DuplicatesWithFilenamesWalker(data['filenames'])
     elif (len(browse_stack) == 2):
-        filename = choice
-        data['filename'] = filename
-        main.original_widget = ContextMenu(choice, filename)
+        main.original_widget = ContextMenu('title', data['filename'])
     elif (len(browse_stack) == 3):
-        action = choice
-        data['action'] = choice
+        action = data['action']
         if (action == "see"):
             f.write("see %s\n" % re.escape(data['filename']))
             os.system("see %s" % re.escape(data['filename']))
