@@ -69,6 +69,7 @@ class DuplicatesWalker(urwid.WidgetWrap):
         row = data['duplicates'][index]
         data['hashes'] = { 'crc32': row['crc32'], 'sha1': row['sha1']}
         f.write("button callback %r\n" % data['hashes'])
+        browse_into(self, None)
 
 class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
     def __init__(self, filenames):
@@ -85,6 +86,7 @@ class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
         index = self._w.focus_position
         data['filename'] = self.filenames[index]['Name']
         f.write("button callback %r\n" % data['filename'])
+        browse_into(self, None)
 
 def createSimpleListWalker(title, elts, callback):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
@@ -113,6 +115,7 @@ class ContextMenu(urwid.WidgetWrap):
         # self.walker.focus - 2
         data['action'] = self.options[self.walker.focus - 2]
         f.write("button callback %r\n" % data['action'])
+        browse_into(self, None)
 
 class ConfirmAction(urwid.WidgetWrap):
     def __init__(self, action):
@@ -132,6 +135,7 @@ class ConfirmAction(urwid.WidgetWrap):
 
     def callback(self, widget):
         f.write("button callback %r\n" % self._w.focus.focus_position)
+        browse_into(self, self.get_elt())
 
 class Presenter:
     def browse_into(self):
@@ -179,9 +183,9 @@ def browse_out():
 main = urwid.Padding(DuplicatesWalker(data['duplicates']), left=0, right=0)
 
 def unhandled_input(key):
-    if key == 'right' or key == 'enter':
+    if key == 'right':
         widget = main.original_widget
-        browse_into(widget, widget.get_elt())
+        widget.callback(None)
     elif key == 'left':
         browse_out();
     elif (key == 'q'):
