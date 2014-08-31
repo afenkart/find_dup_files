@@ -13,6 +13,7 @@ browse_stack = []
 data = {
     'duplicates': Storage.duplicates(1024 * 1024).fetchall(),
     'hashes' : {},
+    'collision_details' : None,
     'filename' : None,
     'action' : None
 }
@@ -80,7 +81,7 @@ class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
 
     def get_elt(self):
         self.callback(None)
-        return data['filenames'][self.walker.focus]['Name']
+        return data['collision_details'][self.walker.focus]['Name']
 
     def callback(self, widget):
         index = self._w.focus_position
@@ -151,8 +152,8 @@ def browse_into(widget, choice):
     f.write('browse_into level %d\n' % (len(browse_stack)))
     if (len(browse_stack) == 1):
         filenames = Storage.files_by_crc32(data['hashes']['crc32'])
-        data['filenames'] = filenames.fetchall()
-        main.original_widget = DuplicatesWithFilenamesWalker(data['filenames'])
+        data['collision_details'] = filenames.fetchall()
+        main.original_widget = DuplicatesWithFilenamesWalker(filenames)
     elif (len(browse_stack) == 2):
         main.original_widget = ContextMenu('title', data['filename'])
     elif (len(browse_stack) == 3):
