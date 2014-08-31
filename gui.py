@@ -89,6 +89,26 @@ class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
         f.write("button callback %r\n" % data['filename'])
         browse_into(self, None)
 
+class HardlinkMenu(urwid.WidgetWrap):
+    def __init__(self):
+        hardlinks = [x for x in data['collision_details'] if x['Name'] != data['filename']]
+        render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
+        self.walker = MyListWalker(hardlinks, render_fun, self.callback)
+        self.hardlinks = hardlinks
+        self.frame = urwid.Overlay(urwid.ListBox(self.walker),
+                                   browse_stack[-1],
+                                   align='center', width=('relative', 80),
+                                   valign='middle', height=('relative', 60),
+                                   min_width=20, min_height=9)
+        urwid.WidgetWrap.__init__(self, self.frame)
+
+    def callback(self, widget):
+        index = self.walker.focus
+        row = self.hardlinks[index]
+        f.write("button callback %r\n" % self.hardlinks[index]['Name'])
+        data['hard-link_target'] = row
+        browse_into(self, None)
+
 def createSimpleListWalker(title, elts, callback):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
     body.append(urwid.Divider())
@@ -119,8 +139,7 @@ class ContextMenu(urwid.WidgetWrap):
         browse_into(self, None)
 
 class ConfirmAction(urwid.WidgetWrap):
-    def __init__(self, action):
-        title = u'You chose %s' % action
+    def __init__(self, title):
         self.ok_cancel = ['Ok', 'Cancel']
         self.walker = createSimpleListWalker(title, self.ok_cancel,
                                              self.callback)
@@ -153,14 +172,33 @@ def browse_into(widget, choice):
             f.write("see %s\n" % re.escape(data['filename']))
             os.system("see %s" % re.escape(data['filename']))
             browse_stack.pop()
-        else:
-            main.original_widget = ConfirmAction(action)
+        elif action == "hard-link":
+            main.original_widget = HardlinkMenu()
+        elif action == "remove":
+            title = u'Remove file %s' % data['filename']
+            main.original_widget = ConfirmAction(title)
     elif (len(browse_stack) == 4):
-        ok_cancel = (choice == "Ok")
-        f.write("execute %s %s\n" % (data['action'], data['filename']))
-        browse_stack.pop()
-        browse_stack.pop()
-        main.original_widget = browse_stack.pop()
+        if data['action'] == "remove":
+            if choice == "Ok":
+                f.write("execute %s %s\n" % (data['action'], data['filename']))
+            browse_stack.pop()
+            browse_stack.pop()
+            main.original_widget = browse_stack.pop()
+        elif data['action'] == "hard-link":
+            title = u'Hard-link file %s to %s' % (data['filename'], data['hard-link_target']['Name'])
+            main.original_widget = ConfirmAction(title)
+        else:
+            log.write("invalid level\n");
+    elif len(browse_stack) == 5:
+        if data['action'] == "hard-link":
+            if choice == "Ok":
+                f.write("execute %s %s\n" % (data['action'], data['filename']))
+            browse_stack.pop()
+            browse_stack.pop()
+            browse_stack.pop()
+            main.original_widget = browse_stack.pop()
+        else:
+            log.write("invalid level\n");
     else:
         f.write("no more levels\n")
         browse_stack.pop()
