@@ -144,7 +144,7 @@ def browse_into(widget, choice):
     if (len(browse_stack) == 1):
         filenames = Storage.files_by_crc32(data['hashes']['crc32'])
         data['collision_details'] = filenames.fetchall()
-        main.original_widget = DuplicatesWithFilenamesWalker(filenames)
+        main.original_widget = DuplicatesWithFilenamesWalker(data['collision_details'])
     elif (len(browse_stack) == 2):
         main.original_widget = ContextMenu('title', data['filename'])
     elif (len(browse_stack) == 3):
