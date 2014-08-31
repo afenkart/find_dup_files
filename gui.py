@@ -138,15 +138,6 @@ class ConfirmAction(urwid.WidgetWrap):
         f.write("button callback %r\n" % self._w.focus.focus_position)
         browse_into(self, self.get_elt())
 
-class Presenter:
-    def browse_into(self):
-        pass
-    def browse_out(self):
-        pass
-
-presenter = Presenter()
-
-
 def browse_into(widget, choice):
     browse_stack.append(widget)
     f.write('browse_into level %d\n' % (len(browse_stack)))
