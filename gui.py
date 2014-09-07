@@ -95,12 +95,20 @@ class HardlinkMenu(urwid.WidgetWrap):
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
         self.walker = MyListWalker(hardlinks, render_fun, self.callback)
         self.hardlinks = hardlinks
-        self.frame = urwid.Overlay(urwid.ListBox(self.walker),
+
+        title = "hard-link file %s to:" % data['filename']
+        pile = urwid.Pile([urwid.AttrMap(urwid.Text(title), 'title'),
+                           urwid.Divider()])
+        pile.selectable = False
+        self.frame = urwid.Frame(urwid.ListBox(self.walker),
+                                 header = pile)
+
+        self.overlay = urwid.Overlay(self.frame,
                                    browse_stack[-1],
-                                   align='center', width=('relative', 80),
+                                   align='center', width=('relative', 90),
                                    valign='middle', height=('relative', 60),
                                    min_width=20, min_height=9)
-        urwid.WidgetWrap.__init__(self, self.frame)
+        urwid.WidgetWrap.__init__(self, self.overlay)
 
     def callback(self, widget):
         index = self.walker.focus
@@ -146,7 +154,7 @@ class ConfirmAction(urwid.WidgetWrap):
         self.frame = urwid.Overlay(urwid.ListBox(self.walker),
                                    browse_stack[-1],
                                    align='center', width=('relative', 80),
-                                   valign='middle', height=('relative', 60),
+                                   valign='bottom', height=('relative', 60),
                                    min_width=20, min_height=9)
         urwid.WidgetWrap.__init__(self, self.frame)
 
