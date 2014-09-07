@@ -57,11 +57,6 @@ class Storage:
         # constraint fk_files_dev_inode foreign key (st_dev, st_inode) reference inode(st_dev, st_inode)
         cur.execute("CREATE TABLE Inodes(st_dev INTEGER, st_inode INTEGER, crc32 INTEGER, sha1 Text, st_mtime FLOAT, st_size INTEGER, constraint inodes_pk PRIMARY KEY (st_dev, st_inode))")
 
-        # use the index luke!
-        # CREATE INDEX inodes_crc32_idx ON Inodes (crc32);
-        # CREATE INDEX inodes_inodes_idx ON Inodes (st_dev, st_inode);
-        # CREATE INDEX files_inodes_idx ON Files(st_dev, st_inode);
-
         cur.execute("CREATE VIEW FileInodeView AS SELECT i.st_dev, i.st_inode, i.crc32, i.sha1, i.st_size, f.name FROM Inodes i JOIN Files f ON f.st_dev = i.st_dev and i.st_inode = f.st_inode")
         self.con.commit()
 
@@ -140,6 +135,33 @@ class Storage:
             print traceback.format_exc()
             print name
 
+    def remove_file(self, name):
+        log = self.log
+        try:
+            f = self.lookup_file(name)
+            if not f:
+                return
+
+            fk = (f['st_dev'], f['st_inode'])
+            cur = self.con.cursor()
+            cur.execute("DELETE FROM Files WHERE name = ?", (name.decode('utf-8'),))
+
+            cur.execute("SELECT count() FROM Files WHERE st_dev = ? and st_inode= ?",
+                        fk)
+
+            if cur.fetchone()['count()'] == 0:
+                self.remove_inode(fk[0], fk[1])
+                return
+
+
+        except lite.Error, err:
+            print "Error %s: name: %s" % (err.args[0], name)
+            print traceback.format_exc()
+            #self.con.rollback()
+        except UnicodeDecodeError, err:
+            print traceback.format_exc()
+            print name
+
 
     def lookup_inode(self, dev, inode):
         """
@@ -171,6 +193,15 @@ class Storage:
         except lite.Error, err:
             print "Error %s: inode: %s--" % (err.args[0], inode)
             #self.con.rollback()
+            return False
+
+    def remove_inode(self, dev, inode):
+        try:
+            cur = self.con.cursor()
+            cur.execute("DELETE FROM Inodes WHERE st_dev = ? and st_inode = ?",
+                        (dev, inode))
+        except lite.Error, err:
+            print "Error %s: inode: %s--" % (err.args[0], inode)
             return False
 
     def files_by_crc32(self, crc32):
@@ -226,6 +257,12 @@ def unit_test():
     dbm.create_indices()
     dbm.create_indices()
     dbm.drop_indices()
+
+    dbm.add_inode(2, 4, 0, 0, 1, 0)
+    dbm.add_file('foo', 2, 4)
+    dbm.add_file('bar', 2, 4)
+    dbm.remove_file('foo')
+    dbm.remove_file('bar')
 
 if __name__ == "__main__":
     unit_test()
