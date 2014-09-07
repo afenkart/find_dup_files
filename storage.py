@@ -44,7 +44,7 @@ class Storage:
         done adding files
         """
         self.con.commit() # one big transaction
-        DB2.create_indices()
+        self.create_indices()
 
     def create_db(self):
         """
