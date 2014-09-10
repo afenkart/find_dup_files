@@ -169,6 +169,23 @@ class ConfirmAction(urwid.WidgetWrap):
         f.write("button callback %r\n" % self._w.focus.focus_position)
         browse_into(self, self.get_elt())
 
+class Action:
+    @staticmethod
+    def hardlink(src, target):
+        pass
+
+    @staticmethod
+    def remove(file_):
+        f.write("execute %s %s\n" % (data['action'], data['filename']))
+        os.remove(file_)
+        Storage.remove_file(file_)
+
+class Representation:
+    @staticmethod
+    def update_collision():
+        filenames = Storage.files_by_crc32(data['hashes']['crc32'])
+        data['collision_details'] = filenames.fetchall()
+
 def browse_into(widget, choice):
     browse_stack.append(widget)
     f.write('browse_into level %d\n' % (len(browse_stack)))
