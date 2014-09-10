@@ -145,6 +145,7 @@ class Storage:
             fk = (f['st_dev'], f['st_inode'])
             cur = self.con.cursor()
             cur.execute("DELETE FROM Files WHERE name = ?", (name.decode('utf-8'),))
+            self.con.commit()
 
             cur.execute("SELECT count() FROM Files WHERE st_dev = ? and st_inode= ?",
                         fk)
@@ -200,6 +201,7 @@ class Storage:
             cur = self.con.cursor()
             cur.execute("DELETE FROM Inodes WHERE st_dev = ? and st_inode = ?",
                         (dev, inode))
+            self.con.commit()
         except lite.Error, err:
             print "Error %s: inode: %s--" % (err.args[0], inode)
             return False
