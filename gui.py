@@ -158,7 +158,7 @@ class ConfirmAction(urwid.WidgetWrap):
         self.frame = urwid.Overlay(urwid.ListBox(self.walker),
                                    browse_stack[-1],
                                    align='center', width=('relative', 80),
-                                   valign='bottom', height=('relative', 60),
+                                   valign='bottom', height=('relative', 30),
                                    min_width=20, min_height=9)
         urwid.WidgetWrap.__init__(self, self.frame)
 
