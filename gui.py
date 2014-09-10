@@ -18,9 +18,13 @@ data = {
     'action' : None
 }
 
+SKIP_PREFIX = "/home/afenkart/"
+
 def strip_prefix(filename):
-    skip = len("/home/afenkart/")
-    return filename[skip:]
+    if filename.startswith(SKIP_PREFIX):
+        return filename[len(SKIP_PREFIX):]
+    else:
+        return filename
 
 class MenuButton(urwid.Button):
     def __init__(self, caption, callback):
