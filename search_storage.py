@@ -142,8 +142,8 @@ def unit_test():
     except subprocess.CalledProcessError, err:
         print err
 
-    dbm = Storage(memory=True)
-    dbm.recreate()
+    dbm = Storage(memory=False)
+    #dbm.recreate()
 
     _iter = FindFiles(dbm)
 
@@ -157,10 +157,14 @@ def unit_test():
     sock.close()
     os.unlink('test-files/test-socket')
 
-    os.system("echo a > test-files/hard_link1.txt")
-    os.system("cp test-files/hard_link1.txt test-files/copy_hard_link1.txt")
+    os.system("echo a > test-files/hardlink1.txt")
+    os.system("ln -f test-files/hardlink1.txt test-files/hardlink2.txt")
+    os.system("ln -f test-files/hardlink1.txt test-files/hardlink3.txt")
+
+    os.system("cp -f test-files/hardlink1.txt test-files/copy1.txt")
+    os.system("cp -f test-files/hardlink1.txt test-files/copy2.txt")
+    os.system("cp -f test-files/hardlink1.txt test-files/copy3.txt")
     _iter.search('./test-files')
-    os.unlink("test-files/copy_hard_link1.txt")
 
     print "\nduplicate keys:"
     print_duplicates(dbm)
@@ -182,13 +186,14 @@ if __name__ == "__main__":
     __ITER__ = FindFiles(DB2)
 
     DB2.begin_adding_files()
-    PROBLEM_FILES = __ITER__.search('/home/afenkart')
+    #PROBLEM_FILES = __ITER__.search('/home/afenkart')
+    PROBLEM_FILES = __ITER__.search('test-files')
     # TODO, do not commit every insertion, but do not rollback everything
     DB2.done_adding_files()
 
     print "\nduplicate keys:"
     print_duplicates(DB2)
 
-    print "\nproblem files:"
-    for f in PROBLEM_FILES:
-        print f
+    if PROBLEM_FILES:
+        print "\nproblem files:"
+        print "\n".join(PROBLEM_FILES)
