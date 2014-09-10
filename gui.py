@@ -11,7 +11,7 @@ Storage.create_indices()
 
 browse_stack = []
 data = {
-    'duplicates': Storage.duplicates(1024 * 1024).fetchall(),
+    'duplicates': Storage.duplicates(0).fetchall(),
     'hashes' : {},
     'collision_details' : None,
     'filename' : None,
