@@ -6,6 +6,8 @@ import re
 
 f = open('/tmp/log_gui.txt', 'w+', False)
 
+SKIP_PREFIX = "/home/afenkart/"
+
 Storage = storage.Storage(memory=False)
 Storage.create_indices()
 
@@ -18,7 +20,6 @@ data = {
     'action' : None
 }
 
-SKIP_PREFIX = "/home/afenkart/"
 
 def strip_prefix(filename):
     if filename.startswith(SKIP_PREFIX):
