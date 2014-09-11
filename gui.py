@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 import urwid
-import storage
 import sys, os
 import re
+
+import storage
+from observable import ObservableProperty
 
 f = open('/tmp/log_gui.txt', 'w+', False)
 
@@ -12,20 +14,35 @@ Storage = storage.Storage(memory=False)
 Storage.create_indices()
 
 browse_stack = []
-data = {
-    'duplicates': Storage.duplicates(0).fetchall(),
-    'hashes' : {},
-    'collision_details' : None,
-    'filename' : None,
-    'action' : None
-}
+class Data(object):
+    # collisions represented by first filename
+    collisions = ObservableProperty()
 
+    # hash of selected collision
+    hashes = ObservableProperty()
+
+    # all filenames of selected collision
+    filenames = ObservableProperty()
+    # 'collision_details' replace filenames
+
+    # filename target of action
+    filename = ObservableProperty()
+
+    # hard-link to file
+    hardlink_target = ObservableProperty()
+
+    # selected action, used to confirm
+    action = ObservableProperty()
+
+D = Data()
+D.collisions = Storage.duplicates(0).fetchall()
 
 def strip_prefix(filename):
     if filename.startswith(SKIP_PREFIX):
         return filename[len(SKIP_PREFIX):]
     else:
         return filename
+
 
 class MenuButton(urwid.Button):
     def __init__(self, caption, callback):
@@ -59,49 +76,58 @@ class MyListWalker(urwid.ListWalker):
         cur = self.data[idx]
         return MenuButton(self.render_fun(self.data[idx]), self.callback)
 
-class DuplicatesWalker(urwid.WidgetWrap):
-    def __init__(self, duplicates):
+class CollisionsWalker(urwid.WidgetWrap):
+    def __init__(self):
         render_fun = lambda x: "%2d %7dk %s" % (x['Count'], x['st_size']/1000,
                                                 strip_prefix(x['Name']))
-        self.walker = MyListWalker(duplicates, render_fun, self.callback)
-        urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
 
-    def get_elt(self):
-        self.callback(None)
-        return data['duplicates'][self.walker.focus]
+        Data.collisions.observe(self.update)
+        self.walker = MyListWalker(D.collisions, render_fun, self.callback)
+        urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
 
     def callback(self, widget):
         index = self._w.focus_position
-        row = data['duplicates'][index]
-        data['hashes'] = { 'crc32': row['crc32'], 'sha1': row['sha1']}
-        f.write("button callback %r\n" % data['hashes'])
+        row = D.collisions[index]
+        D.hashes = { 'crc32': row['crc32'], 'sha1': row['sha1']}
+        f.write("button callback %r\n" % D.hashes)
         browse_into(self, None)
 
-class DuplicatesWithFilenamesWalker(urwid.WidgetWrap):
-    def __init__(self, filenames):
+    def update(self):
+        f.write("CollisionsWalker data changed")
+        self.walker.data = D.collisions
+        if self.walker.focus >= len(D.collisions):
+            self.walker.focus -= 1;
+
+
+class FilenamesWalker(urwid.WidgetWrap):
+    def __init__(self):
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
-        self.walker = MyListWalker(filenames, render_fun, self.callback)
-        self.filenames = filenames
+        Data.filenames.observe(self.update)
+        self.walker = MyListWalker(D.filenames, render_fun, self.callback)
         urwid.WidgetWrap.__init__(self, urwid.ListBox(self.walker))
-
-    def get_elt(self):
-        self.callback(None)
-        return data['collision_details'][self.walker.focus]['Name']
 
     def callback(self, widget):
         index = self._w.focus_position
-        data['filename'] = self.filenames[index]['Name']
-        f.write("button callback %r\n" % data['filename'])
+        D.filename = D.filenames[index]['Name']
+        f.write("button callback %r\n" % D.filename)
         browse_into(self, None)
+
+    def update(self):
+        # self.walker.focus
+        f.write("FilenamesWalker data changed\n")
+        self.walker.data = D.filenames
+        if self.walker.focus >= len(D.collisions):
+            self.walker.focus -= 1;
+        self.walker._modified()
 
 class HardlinkMenu(urwid.WidgetWrap):
     def __init__(self):
-        hardlinks = [x for x in data['collision_details'] if x['Name'] != data['filename']]
+        hardlinks = [x for x in D.filenames if x['Name'] != D.filename]
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
         self.walker = MyListWalker(hardlinks, render_fun, self.callback)
         self.hardlinks = hardlinks
 
-        title = "hard-link file %s to:" % data['filename']
+        title = "hard-link file %s to:" % D.filename
         pile = urwid.Pile([urwid.AttrMap(urwid.Text(title), 'title'),
                            urwid.Divider()])
         pile.selectable = False
@@ -119,7 +145,7 @@ class HardlinkMenu(urwid.WidgetWrap):
         index = self.walker.focus
         row = self.hardlinks[index]
         f.write("button callback %r\n" % self.hardlinks[index]['Name'])
-        data['hard-link_target'] = row
+        D.hardlink_target = row
         browse_into(self, None)
 
 def createSimpleListWalker(title, elts, callback):
@@ -141,14 +167,10 @@ class ContextMenu(urwid.WidgetWrap):
                                    min_width=20, min_height=9)
         urwid.WidgetWrap.__init__(self, self.frame)
 
-    def get_elt(self):
-        self.callback(None)
-        return self.options[self.walker.focus - 2]
-
     def callback(self, widget):
         # self.walker.focus - 2
-        data['action'] = self.options[self.walker.focus - 2]
-        f.write("button callback %r\n" % data['action'])
+        D.action = self.options[self.walker.focus - 2]
+        f.write("button callback %r\n" % D.action)
         browse_into(self, None)
 
 class ConfirmAction(urwid.WidgetWrap):
@@ -163,12 +185,10 @@ class ConfirmAction(urwid.WidgetWrap):
                                    min_width=20, min_height=9)
         urwid.WidgetWrap.__init__(self, self.frame)
 
-    def get_elt(self):
-        return self.ok_cancel[self.walker.focus - 2]
-
     def callback(self, widget):
         f.write("button callback %r\n" % self._w.focus.focus_position)
-        browse_into(self, self.get_elt())
+        elt = self.ok_cancel[self.walker.focus - 2]
+        browse_into(self, elt)
 
 class Action:
     @staticmethod
@@ -176,53 +196,64 @@ class Action:
         pass
 
     @staticmethod
-    def remove(file_):
-        f.write("execute %s %s\n" % (data['action'], data['filename']))
-        os.remove(file_)
-        Storage.remove_file(file_)
+    def remove(filename):
+        f.write("do remove %s\n" % (filename))
+        os.remove(filename)
+        Storage.remove_file(filename)
 
 class Representation:
     @staticmethod
-    def update_collision():
-        filenames = Storage.files_by_crc32(data['hashes']['crc32'])
-        data['collision_details'] = filenames.fetchall()
+    def update_filenames():
+        f.write("update filenames\n")
+        filenames = Storage.files_by_crc32(D.hashes['crc32'])
+        D.filenames = filenames.fetchall()
 
 def browse_into(widget, choice):
     browse_stack.append(widget)
     f.write('browse_into level %d\n' % (len(browse_stack)))
+
     if (len(browse_stack) == 1):
-        filenames = Storage.files_by_crc32(data['hashes']['crc32'])
-        data['collision_details'] = filenames.fetchall()
-        main.original_widget = DuplicatesWithFilenamesWalker(data['collision_details'])
+        filenames = Storage.files_by_crc32(D.hashes['crc32'])
+        D.filenames = filenames.fetchall()
+        main.original_widget = FilenamesWalker()
+
     elif (len(browse_stack) == 2):
-        main.original_widget = ContextMenu('title', data['filename'])
+        main.original_widget = ContextMenu('title', D.filename)
+
     elif (len(browse_stack) == 3):
-        action = data['action']
+        action = D.action
         if (action == "see"):
-            f.write("see %s\n" % re.escape(data['filename']))
-            os.system("see %s" % re.escape(data['filename']))
+            f.write("see %s\n" % re.escape(D.filename))
+            os.system("see %s" % re.escape(D.filename))
             browse_stack.pop()
         elif action == "hard-link":
             main.original_widget = HardlinkMenu()
         elif action == "remove":
-            title = u'Remove file %s' % data['filename']
+            title = u'Remove file %s' % D.filename
             main.original_widget = ConfirmAction(title)
+
     elif (len(browse_stack) == 4):
-        if data['action'] == "remove":
+        if D.action == "remove":
+            f.write("- selected action %s\n" % D.action)
             if choice == "Ok":
-                f.write("execute %s %s\n" % (data['action'], data['filename']))
+                Action.remove(D.filename)
+                Representation.update_filenames()
+            else:
+                f.write("remove not confirmed")
             browse_stack.pop()
             browse_stack.pop()
             main.original_widget = browse_stack.pop()
-        elif data['action'] == "hard-link":
-            title = u'Hard-link file %s to %s' % (data['filename'], data['hard-link_target']['Name'])
+        elif D.action == "hard-link":
+            title = u'Hard-link file %s to %s' % (D.filename,
+                                                  D.hardlink_target['Name'])
             main.original_widget = ConfirmAction(title)
         else:
             log.write("invalid level\n");
+
     elif len(browse_stack) == 5:
-        if data['action'] == "hard-link":
+        if D.action == "hard-link":
             if choice == "Ok":
-                f.write("execute %s %s\n" % (data['action'], data['filename']))
+                f.write("execute %s %s\n" % (D.action, D.filename))
             browse_stack.pop()
             browse_stack.pop()
             browse_stack.pop()
@@ -239,8 +270,6 @@ def browse_out():
         main.original_widget = browse_stack.pop()
     else:
         print "browse_stack empty"
-
-main = urwid.Padding(DuplicatesWalker(data['duplicates']), left=0, right=0)
 
 def unhandled_input(key):
     if key == 'right':
@@ -263,4 +292,8 @@ palette = [
     ('selected', 'white', 'dark blue'),
     ]
 
+main = urwid.Padding(CollisionsWalker(), left=0, right=0)
+
 urwid.MainLoop(main, palette, unhandled_input=unhandled_input).run()
+
+print "foo"
