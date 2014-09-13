@@ -163,6 +163,14 @@ class Storage:
             print traceback.format_exc()
             print name
 
+    def replace_with_hardlink(self, source, linkname):
+        f = self.lookup_file(source)
+        if not f:
+            raise Exception("file not found %s" % name)
+
+        self.remove_file(linkname)
+        self.add_file(linkname, f['st_dev'], f['st_inode'])
+        self.con.commit()
 
     def lookup_inode(self, dev, inode):
         """

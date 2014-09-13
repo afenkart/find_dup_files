@@ -192,8 +192,11 @@ class ConfirmAction(urwid.WidgetWrap):
 
 class Action:
     @staticmethod
-    def hardlink(src, target):
-        pass
+    def hardlink(source, linkname):
+        f.write("hard link %s\n" % (linkname))
+        os.unlink(linkname)
+        os.link(source, linkname)
+        Storage.replace_with_hardlink(source, linkname)
 
     @staticmethod
     def remove(filename):
@@ -253,7 +256,10 @@ def browse_into(widget, choice):
     elif len(browse_stack) == 5:
         if D.action == "hard-link":
             if choice == "Ok":
-                f.write("execute %s %s\n" % (D.action, D.filename))
+                Action.hardlink(D.hardlink_target['Name'], D.filename)
+                Representation.update_filenames()
+            else:
+                f.write("remove not confirmed")
             browse_stack.pop()
             browse_stack.pop()
             browse_stack.pop()
