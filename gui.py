@@ -226,14 +226,55 @@ class Representation:
         D.collisions = Storage.duplicates(MIN_FILESIZE).fetchall()
 
 
+# (parent, child)
+edges = []
+
+# (from, to) -> execute side_effect
+side_effects = {}
+
+# navigation graph
+collisions = CollisionsWalker()
+filenames = FilenamesWalker()
+#action = ContextMenu()
+#hardlink = HardlinkMenu()
+
+edges.append((collisions, filenames))
+
+def browse_filenames(choice):
+    # check if differs
+    f.write("browse into filenames\n")
+    filenames = Storage.files_by_crc32(D.collision['crc32'])
+    D.filenames = filenames.fetchall()
+side_effects[(collisions, filenames)] = browse_filenames
+
+def browse_collisions(choice):
+    f.write("browse out filenames\n")
+side_effects[(filenames, collisions)] = browse_collisions
+
+
+def child_of(parent):
+    match = filter(lambda edge: edge[0] == parent, edges)
+    if not match:
+        return None
+    edge = match[0]
+    return edge[1]
+
+def parent_of(child):
+    match = filter(lambda edge: edge[1] == child, edges)
+    if not match:
+        return None
+    edge = match[0]
+    return edge[0]
+
 def browse_into(widget, choice):
     browse_stack.append(widget)
     f.write('browse_into level %d\n' % (len(browse_stack)))
 
-    if (len(browse_stack) == 1):
-        filenames = Storage.files_by_crc32(D.collision['crc32'])
-        D.filenames = filenames.fetchall()
-        main.original_widget = FilenamesWalker()
+    child = child_of(widget)
+    if child:
+        if side_effects.has_key((widget, child)):
+            side_effects[(widget, child)](widget)
+        main.original_widget = child
 
     elif (len(browse_stack) == 2):
         main.original_widget = ContextMenu('title', D.filename)
@@ -313,7 +354,7 @@ palette = [
     ('selected', 'white', 'dark blue'),
     ]
 
-main = urwid.Padding(CollisionsWalker(), left=0, right=0)
+main = urwid.Padding(collisions, left=0, right=0)
 
 urwid.MainLoop(main, palette, unhandled_input=unhandled_input).run()
 
