@@ -9,6 +9,7 @@ from observable import ObservableProperty
 f = open('/tmp/log_gui.txt', 'w+', False)
 
 SKIP_PREFIX = "/home/afenkart/"
+MIN_FILESIZE = 0
 
 Storage = storage.Storage(memory=False)
 Storage.create_indices()
@@ -18,12 +19,11 @@ class Data(object):
     # collisions represented by first filename
     collisions = ObservableProperty()
 
-    # hash of selected collision
-    hashes = ObservableProperty()
+    # collision row to be resolved
+    collision = ObservableProperty()
 
     # all filenames of selected collision
     filenames = ObservableProperty()
-    # 'collision_details' replace filenames
 
     # filename target of action
     filename = ObservableProperty()
@@ -35,7 +35,7 @@ class Data(object):
     action = ObservableProperty()
 
 D = Data()
-D.collisions = Storage.duplicates(0).fetchall()
+D.collisions = Storage.duplicates(MIN_FILESIZE).fetchall()
 
 def strip_prefix(filename):
     if filename.startswith(SKIP_PREFIX):
@@ -88,8 +88,8 @@ class CollisionsWalker(urwid.WidgetWrap):
     def callback(self, widget):
         index = self._w.focus_position
         row = D.collisions[index]
-        D.hashes = { 'crc32': row['crc32'], 'sha1': row['sha1']}
-        f.write("button callback %r\n" % D.hashes)
+        D.collision = row
+        f.write("button callback %r %r\n" % (row['crc32'], row['sha1']))
         browse_into(self, None)
 
     def update(self):
@@ -208,15 +208,30 @@ class Representation:
     @staticmethod
     def update_filenames():
         f.write("update filenames\n")
-        filenames = Storage.files_by_crc32(D.hashes['crc32'])
+        filenames = Storage.files_by_crc32(D.collision['crc32'])
         D.filenames = filenames.fetchall()
+        Representation.update_collisions()
+
+    @staticmethod
+    def update_collisions():
+        f.write("update collisions\n")
+        coll = D.collisions
+
+        s = set([(c['st_dev'], c['st_inode']) for c in D.filenames])
+        if len(s) == D.collision['Count']:
+            f.write("no change in collision count\n")
+            return
+
+        # can't change sqlite.row element
+        D.collisions = Storage.duplicates(MIN_FILESIZE).fetchall()
+
 
 def browse_into(widget, choice):
     browse_stack.append(widget)
     f.write('browse_into level %d\n' % (len(browse_stack)))
 
     if (len(browse_stack) == 1):
-        filenames = Storage.files_by_crc32(D.hashes['crc32'])
+        filenames = Storage.files_by_crc32(D.collision['crc32'])
         D.filenames = filenames.fetchall()
         main.original_widget = FilenamesWalker()
 
