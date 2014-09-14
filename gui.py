@@ -23,7 +23,7 @@ class Data(object):
     collision = ObservableProperty(list())
 
     # all filenames of selected collision
-    filenames = ObservableProperty(None)
+    filenames = ObservableProperty(list())
 
     # filename target of action
     filename = ObservableProperty(str())
@@ -121,7 +121,7 @@ class FilenamesWalker(urwid.WidgetWrap):
         self.walker._modified()
 
 class HardlinkMenu(urwid.WidgetWrap):
-    def __init__(self):
+    def __init__(self, overlay_parent):
         hardlinks = [x for x in D.filenames if x['Name'] != D.filename]
         render_fun = lambda x: "%d %s" % (x['st_inode'], x['Name'])
         self.walker = MyListWalker(hardlinks, render_fun, self.callback)
@@ -135,7 +135,7 @@ class HardlinkMenu(urwid.WidgetWrap):
                                  header = pile)
 
         self.overlay = urwid.Overlay(self.frame,
-                                   browse_stack[-1],
+                                     overlay_parent,
                                    align='center', width=('relative', 90),
                                    valign='middle', height=('relative', 60),
                                    min_width=20, min_height=9)
@@ -247,7 +247,7 @@ side_effects = {}
 collisions = CollisionsWalker()
 filenames = FilenamesWalker()
 context = ContextMenu(filenames)
-#hardlink = HardlinkMenu()
+hardlink = HardlinkMenu(context)
 
 edges.append((collisions, filenames))
 edges.append((filenames, context))
@@ -295,7 +295,7 @@ def browse_into(widget, choice):
             os.system("see %s" % re.escape(D.filename))
             browse_stack.pop()
         elif action == "hard-link":
-            main.original_widget = HardlinkMenu()
+            main.original_widget = HardlinkMenu(browse_stack[-1])
         elif action == "remove":
             title = u'Remove file %s' % D.filename
             main.original_widget = ConfirmAction(title)
