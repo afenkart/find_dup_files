@@ -17,19 +17,19 @@ Storage.create_indices()
 browse_stack = []
 class Data(object):
     # collisions represented by first filename
-    collisions = ObservableProperty()
+    collisions = ObservableProperty(list())
 
     # collision row to be resolved
-    collision = ObservableProperty()
+    collision = ObservableProperty(list())
 
     # all filenames of selected collision
-    filenames = ObservableProperty()
+    filenames = ObservableProperty(None)
 
     # filename target of action
-    filename = ObservableProperty()
+    filename = ObservableProperty(str())
 
     # hard-link to file
-    hardlink_target = ObservableProperty()
+    hardlink_target = ObservableProperty(None)
 
     # selected action, used to confirm
     action = ObservableProperty()
@@ -148,30 +148,41 @@ class HardlinkMenu(urwid.WidgetWrap):
         D.hardlink_target = row
         browse_into(self, None)
 
+class ContextMenu(urwid.WidgetWrap):
+    def __init__(self, overlay_parent):
+        Data.filename.observe(self.set_title)
+        self.title = urwid.Text(strip_prefix(D.filename))
+
+        self.options = u'see remove hard-link'.split()
+        body = [MenuButton(c, self.callback) for c in self.options]
+        self.walker = urwid.SimpleFocusListWalker(body)
+
+        pile = urwid.Pile([urwid.AttrMap(self.title, 'title'),
+                           urwid.Divider()])
+
+        self.frame = urwid.Frame(urwid.ListBox(self.walker),
+                                             header = pile)
+        self.overlay = urwid.Overlay(self.frame,
+                                     overlay_parent,
+                                     align='center', width=('relative', 80),
+                                     valign='middle', height=('relative', 60),
+                                     min_width=20, min_height=9)
+        urwid.WidgetWrap.__init__(self, self.overlay)
+
+    def callback(self, widget):
+        D.action = self.options[self.walker.focus]
+        f.write("button callback %r\n" % D.action)
+        browse_into(self, None)
+
+    def set_title(self):
+        f.write("ContextMenu update title\n")
+        self.title.set_text(strip_prefix(D.filename))
+
 def createSimpleListWalker(title, elts, callback):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
     body.append(urwid.Divider())
     body.extend([MenuButton(c, callback) for c in elts])
     return urwid.SimpleFocusListWalker(body)
-
-class ContextMenu(urwid.WidgetWrap):
-    def __init__(self, title, filename):
-        self.options = u'see remove hard-link'.split()
-        self.walker = createSimpleListWalker(strip_prefix(filename),
-                                             self.options,
-                                             self.callback)
-        self.frame = urwid.Overlay(urwid.ListBox(self.walker),
-                                   browse_stack[-1],
-                                   align='center', width=('relative', 80),
-                                   valign='middle', height=('relative', 60),
-                                   min_width=20, min_height=9)
-        urwid.WidgetWrap.__init__(self, self.frame)
-
-    def callback(self, widget):
-        # self.walker.focus - 2
-        D.action = self.options[self.walker.focus - 2]
-        f.write("button callback %r\n" % D.action)
-        browse_into(self, None)
 
 class ConfirmAction(urwid.WidgetWrap):
     def __init__(self, title):
@@ -235,10 +246,11 @@ side_effects = {}
 # navigation graph
 collisions = CollisionsWalker()
 filenames = FilenamesWalker()
-#action = ContextMenu()
+context = ContextMenu(filenames)
 #hardlink = HardlinkMenu()
 
 edges.append((collisions, filenames))
+edges.append((filenames, context))
 
 def browse_filenames(choice):
     # check if differs
@@ -275,9 +287,6 @@ def browse_into(widget, choice):
         if side_effects.has_key((widget, child)):
             side_effects[(widget, child)](widget)
         main.original_widget = child
-
-    elif (len(browse_stack) == 2):
-        main.original_widget = ContextMenu('title', D.filename)
 
     elif (len(browse_stack) == 3):
         action = D.action

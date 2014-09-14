@@ -2,8 +2,8 @@
 import weakref
 
 class ObservableProperty(object):
-    def __init__(self):
-        self.value = None
+    def __init__(self, init = None):
+        self.value = init
         self.observers = []
 
     def __get__(self, instance, cls):
