@@ -90,7 +90,7 @@ class CollisionsWalker(urwid.WidgetWrap):
         row = D.collisions[index]
         D.collision = row
         f.write("button callback %r %r\n" % (row['crc32'], row['sha1']))
-        browse_into(self, None)
+        browse_into(self, None, None)
 
     def update(self):
         f.write("CollisionsWalker data changed")
@@ -110,7 +110,7 @@ class FilenamesWalker(urwid.WidgetWrap):
         index = self._w.focus_position
         D.filename = D.filenames[index]['Name']
         f.write("button callback %r\n" % D.filename)
-        browse_into(self, None)
+        browse_into(self, None, None)
 
     def update(self):
         # self.walker.focus
@@ -146,15 +146,15 @@ class HardlinkMenu(urwid.WidgetWrap):
         row = self.hardlinks[index]
         f.write("button callback %r\n" % self.hardlinks[index]['Name'])
         D.hardlink_target = row
-        browse_into(self, None)
+        browse_into(self, None, None)
 
 class ContextMenu(urwid.WidgetWrap):
-    def __init__(self, overlay_parent):
-        Data.filename.observe(self.set_title)
+    def __init__(self, overlay_parent, options):
         self.title = urwid.Text(strip_prefix(D.filename))
+        Data.filename.observe(self.set_title)
 
-        self.options = u'see remove hard-link'.split()
-        body = [MenuButton(c, self.callback) for c in self.options]
+        self.children = options
+        body = [MenuButton(c, self.callback) for c in options]
         self.walker = urwid.SimpleFocusListWalker(body)
 
         pile = urwid.Pile([urwid.AttrMap(self.title, 'title'),
@@ -170,9 +170,9 @@ class ContextMenu(urwid.WidgetWrap):
         urwid.WidgetWrap.__init__(self, self.overlay)
 
     def callback(self, widget):
-        D.action = self.options[self.walker.focus]
+        D.action = self.children[self.walker.focus]
         f.write("button callback %r\n" % D.action)
-        browse_into(self, None)
+        browse_into(self, D.action, None)
 
     def set_title(self):
         f.write("ContextMenu update title\n")
@@ -185,12 +185,14 @@ def createSimpleListWalker(title, elts, callback):
     return urwid.SimpleFocusListWalker(body)
 
 class ConfirmAction(urwid.WidgetWrap):
-    def __init__(self, title):
+    def __init__(self, title, overlay_parent):
+        f.write("confirm action %s\n" % title)
+        self.title = title
         self.ok_cancel = ['Ok', 'Cancel']
         self.walker = createSimpleListWalker(title, self.ok_cancel,
                                              self.callback)
         self.frame = urwid.Overlay(urwid.ListBox(self.walker),
-                                   browse_stack[-1],
+                                   overlay_parent,
                                    align='center', width=('relative', 80),
                                    valign='bottom', height=('relative', 30),
                                    min_width=20, min_height=9)
@@ -199,7 +201,7 @@ class ConfirmAction(urwid.WidgetWrap):
     def callback(self, widget):
         f.write("button callback %r\n" % self._w.focus.focus_position)
         elt = self.ok_cancel[self.walker.focus - 2]
-        browse_into(self, elt)
+        browse_into(self, None, elt == 'Ok')
 
 class Action:
     @staticmethod
@@ -236,33 +238,15 @@ class Representation:
         # can't change sqlite.row element
         D.collisions = Storage.duplicates(MIN_FILESIZE).fetchall()
 
-
 # (parent, child)
 edges = []
 
+# no all nodes have frames
+frames = {}
+frames_create = {}
+
 # (from, to) -> execute side_effect
 side_effects = {}
-
-# navigation graph
-collisions = CollisionsWalker()
-filenames = FilenamesWalker()
-context = ContextMenu(filenames)
-hardlink = HardlinkMenu(context)
-
-edges.append((collisions, filenames))
-edges.append((filenames, context))
-
-def browse_filenames(choice):
-    # check if differs
-    f.write("browse into filenames\n")
-    filenames = Storage.files_by_crc32(D.collision['crc32'])
-    D.filenames = filenames.fetchall()
-side_effects[(collisions, filenames)] = browse_filenames
-
-def browse_collisions(choice):
-    f.write("browse out filenames\n")
-side_effects[(filenames, collisions)] = browse_collisions
-
 
 def child_of(parent):
     match = filter(lambda edge: edge[0] == parent, edges)
@@ -278,15 +262,77 @@ def parent_of(child):
     edge = match[0]
     return edge[0]
 
-def browse_into(widget, choice):
+# navigation graph
+collisions = "collisions"
+filenames = "filenames"
+context_menu = "actions"
+see_file = "see"
+hardlink_file = "hard link"
+delete_confirm = "delete"
+hardlink_confirmed = "hard link confirmed"
+
+edges.append((collisions, filenames))
+edges.append((filenames, context_menu))
+edges.append((context_menu, see_file))
+edges.append((context_menu, delete_confirm))
+edges.append((context_menu, hardlink_file))
+edges.append((delete_confirm, filenames))
+
+frames[collisions] = CollisionsWalker()
+frames[filenames] = FilenamesWalker()
+
+frames_create[context_menu] = lambda x: ContextMenu(frames[filenames],
+                                                   ['see', 'delete', 'hardlink'])
+frames_create[delete_confirm] = lambda x: ConfirmAction(delete_confirm,
+                                                     main.original_widget)
+#frames[hardlink_file] = lambda x: HardlinkMenu(frames[context])
+
+
+def update_filenames(edge, arg):
+    # check if differs
+    f.write("browse into filenames\n")
+    filenames = Storage.files_by_crc32(D.collision['crc32'])
+    D.filenames = filenames.fetchall()
+
+def remove_if(edge, confirmed):
+    if confirmed:
+        Action.remove(D.filename)
+        Representation.update_filenames()
+
+side_effects[(collisions, filenames)] = update_filenames
+side_effects[(delete_confirm, filenames)] = remove_if
+
+def browse_collisions(choice):
+    f.write("browse out filenames\n")
+side_effects[(filenames, collisions)] = browse_collisions
+
+cur_node = collisions
+
+def browse_into(widget, child, arg):
+    global cur_node
+    parent = cur_node
     browse_stack.append(widget)
     f.write('browse_into level %d\n' % (len(browse_stack)))
 
-    child = child_of(widget)
+    if not child:
+        child = child_of(cur_node)
+
     if child:
-        if side_effects.has_key((widget, child)):
-            side_effects[(widget, child)](widget)
-        main.original_widget = child
+        f.write('activate child %s\n' % child)
+
+        if side_effects.has_key((parent, child)):
+            f.write('side effects %s\n' % child)
+            side_effects[(parent, child)]((parent, child), arg)
+
+        if (frames.has_key(child)):
+            f.write('frame %s\n' % child)
+            main.original_widget = frames[child]
+
+        if (frames_create.has_key(child)):
+            f.write('frame create %s\n' % child)
+            main.original_widget = frames_create[child](None)
+
+        cur_node = child
 
     elif (len(browse_stack) == 3):
         action = D.action
@@ -337,8 +383,10 @@ def browse_into(widget, choice):
     f.flush()
 
 def browse_out():
+    global cur_node
     if (len(browse_stack) > 0):
         main.original_widget = browse_stack.pop()
+        cur_node = parent_of(cur_node)
     else:
         print "browse_stack empty"
 
@@ -363,7 +411,7 @@ palette = [
     ('selected', 'white', 'dark blue'),
     ]
 
-main = urwid.Padding(collisions, left=0, right=0)
+main = urwid.Padding(frames[collisions], left=0, right=0)
 
 urwid.MainLoop(main, palette, unhandled_input=unhandled_input).run()
 
