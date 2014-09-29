@@ -241,12 +241,12 @@ class Representation:
 # (parent, child)
 edges = []
 
-# no all nodes have frames
-frames = {}
-frames_create = {}
-
 # (from, to) -> execute side_effect
 side_effects = {}
+
+# what to do in given state no matter from where
+# typically show some frame
+state_effects = {}
 
 def child_of(parent):
     match = filter(lambda edge: edge[0] == parent, edges)
@@ -278,14 +278,23 @@ edges.append((context_menu, delete_confirm))
 edges.append((context_menu, hardlink_file))
 edges.append((delete_confirm, filenames))
 
-frames[collisions] = CollisionsWalker()
-frames[filenames] = FilenamesWalker()
+fcw = CollisionsWalker()
+def show_collisions():
+    global fcw;
+    return fcw
 
-frames_create[context_menu] = lambda x: ContextMenu(frames[filenames],
+fnm = FilenamesWalker()
+def show_filenames():
+    global fnm
+    return fnm
+
+state_effects[collisions] = show_collisions
+state_effects[filenames] = show_filenames
+state_effects[context_menu] = lambda: ContextMenu(main.original_widget,
                                                    ['see', 'delete', 'hardlink'])
-frames_create[delete_confirm] = lambda x: ConfirmAction(delete_confirm,
+state_effects[delete_confirm] = lambda: ConfirmAction(delete_confirm,
                                                      main.original_widget)
-#frames[hardlink_file] = lambda x: HardlinkMenu(frames[context])
+#state_effects[hardlink_file] = lambda x: HardlinkMenu(frames[context])
 
 
 def update_filenames(edge, arg):
@@ -294,17 +303,17 @@ def update_filenames(edge, arg):
     filenames = Storage.files_by_crc32(D.collision['crc32'])
     D.filenames = filenames.fetchall()
 
+def update_collisions(choice):
+    f.write("browse out filenames\n")
+
 def remove_if(edge, confirmed):
     if confirmed:
         Action.remove(D.filename)
         Representation.update_filenames()
 
 side_effects[(collisions, filenames)] = update_filenames
+side_effects[(filenames, collisions)] = update_collisions
 side_effects[(delete_confirm, filenames)] = remove_if
-
-def browse_collisions(choice):
-    f.write("browse out filenames\n")
-side_effects[(filenames, collisions)] = browse_collisions
 
 cur_node = collisions
 
@@ -312,7 +321,7 @@ def browse_into(widget, child, arg):
     global cur_node
     parent = cur_node
     browse_stack.append(widget)
-    f.write('browse_into level %d\n' % (len(browse_stack)))
+    f.write('browse_into level:%d child:%s\n' % (len(browse_stack), child))
 
     if not child:
         child = child_of(cur_node)
@@ -324,13 +333,9 @@ def browse_into(widget, child, arg):
             f.write('side effects %s\n' % child)
             side_effects[(parent, child)]((parent, child), arg)
 
-        if (frames.has_key(child)):
+        if state_effects.has_key(child):
             f.write('frame %s\n' % child)
-            main.original_widget = frames[child]
-
-        if (frames_create.has_key(child)):
-            f.write('frame create %s\n' % child)
-            main.original_widget = frames_create[child](None)
+            main.original_widget = state_effects[child]()
 
         cur_node = child
 
@@ -411,8 +416,6 @@ palette = [
     ('selected', 'white', 'dark blue'),
     ]
 
-main = urwid.Padding(frames[collisions], left=0, right=0)
+main = urwid.Padding(state_effects[cur_node](), left=0, right=0)
 
 urwid.MainLoop(main, palette, unhandled_input=unhandled_input).run()
-
-print "foo"
