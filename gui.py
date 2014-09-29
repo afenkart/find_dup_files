@@ -248,6 +248,9 @@ side_effects = {}
 # typically show some frame
 state_effects = {}
 
+# see ConfirmAction, if true -> take node, false browse_out
+translate_arg_to_child = {}
+
 def child_of(parent):
     match = filter(lambda edge: edge[0] == parent, edges)
     if not match:
@@ -278,6 +281,14 @@ edges.append((context_menu, delete_confirm))
 edges.append((context_menu, hardlink_file))
 edges.append((delete_confirm, filenames))
 
+def translate_confirm_delete(taken):
+    if taken:
+        return child_of(delete_confirm)
+    else:
+        return parent_of(delete_confirm)
+
+translate_arg_to_child[delete_confirm] = translate_confirm_delete
+
 fcw = CollisionsWalker()
 def show_collisions():
     global fcw;
@@ -296,14 +307,13 @@ state_effects[delete_confirm] = lambda: ConfirmAction(delete_confirm,
                                                      main.original_widget)
 #state_effects[hardlink_file] = lambda x: HardlinkMenu(frames[context])
 
-
 def update_filenames(edge, arg):
     # check if differs
     f.write("browse into filenames\n")
     filenames = Storage.files_by_crc32(D.collision['crc32'])
     D.filenames = filenames.fetchall()
 
-def update_collisions(choice):
+def update_collisions(edge, choice):
     f.write("browse out filenames\n")
 
 def remove_if(edge, confirmed):
@@ -323,7 +333,12 @@ def browse_into(widget, child, arg):
     browse_stack.append(widget)
     f.write('browse_into level:%d child:%s\n' % (len(browse_stack), child))
 
-    if not child:
+    if child:
+        pass
+    elif translate_arg_to_child.has_key(cur_node):
+        f.write("translate_arg_to_child\n")
+        child = translate_arg_to_child[cur_node](arg)
+    else:
         child = child_of(cur_node)
 
     if child:
