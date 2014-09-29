@@ -90,7 +90,7 @@ class CollisionsWalker(urwid.WidgetWrap):
         row = D.collisions[index]
         D.collision = row
         f.write("button callback %r %r\n" % (row['crc32'], row['sha1']))
-        browse_into(self, None, None)
+        browse_into(self, None)
 
     def update(self):
         f.write("CollisionsWalker data changed")
@@ -110,7 +110,7 @@ class FilenamesWalker(urwid.WidgetWrap):
         index = self._w.focus_position
         D.filename = D.filenames[index]['Name']
         f.write("button callback %r\n" % D.filename)
-        browse_into(self, None, None)
+        browse_into(self, None)
 
     def update(self):
         # self.walker.focus
@@ -146,7 +146,7 @@ class HardlinkMenu(urwid.WidgetWrap):
         row = self.hardlinks[index]
         f.write("button callback %r\n" % self.hardlinks[index]['Name'])
         D.hardlink_target = row
-        browse_into(self, None, None)
+        browse_into(self, None)
 
 class ContextMenu(urwid.WidgetWrap):
     def __init__(self, overlay_parent, options):
@@ -172,7 +172,7 @@ class ContextMenu(urwid.WidgetWrap):
     def callback(self, widget):
         D.action = self.children[self.walker.focus]
         f.write("button callback %r\n" % D.action)
-        browse_into(self, D.action, None)
+        browse_into(self, D.action)
 
     def set_title(self):
         f.write("ContextMenu update title\n")
@@ -201,7 +201,7 @@ class ConfirmAction(urwid.WidgetWrap):
     def callback(self, widget):
         f.write("button callback %r\n" % self._w.focus.focus_position)
         elt = self.ok_cancel[self.walker.focus - 2]
-        browse_into(self, None, elt == 'Ok')
+        browse_into(self, elt == 'Ok')
 
 class Action:
     @staticmethod
@@ -248,15 +248,12 @@ side_effects = {}
 # typically show some frame
 state_effects = {}
 
-# see ConfirmAction, if true -> take node, false browse_out
-translate_arg_to_child = {}
 
-def child_of(parent):
-    match = filter(lambda edge: edge[0] == parent, edges)
+def child_if_arg(parent, arg):
+    match = [ dst for (src, dst, cond) in edges if src == parent and arg == cond]
     if not match:
         return None
-    edge = match[0]
-    return edge[1]
+    return match[0]
 
 def parent_of(child):
     match = filter(lambda edge: edge[1] == child, edges)
@@ -274,20 +271,14 @@ hardlink_file = "hard link"
 delete_confirm = "delete"
 hardlink_confirmed = "hard link confirmed"
 
-edges.append((collisions, filenames))
-edges.append((filenames, context_menu))
-edges.append((context_menu, see_file))
-edges.append((context_menu, delete_confirm))
-edges.append((context_menu, hardlink_file))
-edges.append((delete_confirm, filenames))
-
-def translate_confirm_delete(taken):
-    if taken:
-        return child_of(delete_confirm)
-    else:
-        return parent_of(delete_confirm)
-
-translate_arg_to_child[delete_confirm] = translate_confirm_delete
+edges.append((collisions, filenames, None))
+edges.append((filenames, context_menu, None))
+# doesn context_menu, filenames, see_file -> multiple (xx, filenames) edge
+edges.append((context_menu, see_file, see_file))
+edges.append((context_menu, delete_confirm, delete_confirm))
+edges.append((context_menu, hardlink_file, hardlink_file))
+edges.append((delete_confirm, filenames, True))
+edges.append((delete_confirm, delete_execute, False))
 
 fcw = CollisionsWalker()
 def show_collisions():
@@ -317,9 +308,8 @@ def update_collisions(edge, choice):
     f.write("browse out filenames\n")
 
 def remove_if(edge, confirmed):
-    if confirmed:
-        Action.remove(D.filename)
-        Representation.update_filenames()
+    Action.remove(D.filename)
+    Representation.update_filenames()
 
 side_effects[(collisions, filenames)] = update_filenames
 side_effects[(filenames, collisions)] = update_collisions
@@ -327,19 +317,14 @@ side_effects[(delete_confirm, filenames)] = remove_if
 
 cur_node = collisions
 
-def browse_into(widget, child, arg):
+def browse_into(widget, arg):
     global cur_node
     parent = cur_node
     browse_stack.append(widget)
-    f.write('browse_into level:%d child:%s\n' % (len(browse_stack), child))
+    f.write('browse_into level:%d arg:%r\n' % (len(browse_stack), arg))
 
-    if child:
-        pass
-    elif translate_arg_to_child.has_key(cur_node):
-        f.write("translate_arg_to_child\n")
-        child = translate_arg_to_child[cur_node](arg)
-    else:
-        child = child_of(cur_node)
+    child = child_if_arg(cur_node, arg)
+    f.write("sel child: %s\n" % child)
 
     if child:
         f.write('activate child %s\n' % child)
@@ -382,7 +367,7 @@ def browse_into(widget, child, arg):
                                                   D.hardlink_target['Name'])
             main.original_widget = ConfirmAction(title)
         else:
-            log.write("invalid level\n");
+            f.write("invalid level\n");
 
     elif len(browse_stack) == 5:
         if D.action == "hard-link":
@@ -396,7 +381,7 @@ def browse_into(widget, child, arg):
             browse_stack.pop()
             main.original_widget = browse_stack.pop()
         else:
-            log.write("invalid level\n");
+            f.write("invalid level\n");
     else:
         f.write("no more levels\n")
         browse_stack.pop()
