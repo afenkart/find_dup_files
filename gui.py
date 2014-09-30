@@ -317,26 +317,28 @@ side_effects[(delete_confirm, filenames)] = remove_if
 
 cur_node = collisions
 
+def transition(src, dst, arg):
+    f.write('transition [%s -> %s]\n' % (src, dst))
+
+    if side_effects.has_key((src, dst)):
+        f.write('side effects %s\n' % dst)
+        side_effects[(src, dst)]((src, dst), arg)
+
+    if state_effects.has_key(dst):
+        f.write('frame %s\n' % dst)
+        main.original_widget = state_effects[dst]()
+
 def browse_into(widget, arg):
     global cur_node
-    parent = cur_node
-    browse_stack.append(widget)
-    f.write('browse_into level:%d arg:%r\n' % (len(browse_stack), arg))
+    f.write('[browse into] cur:%s level:%d arg:%r\n' %
+            (cur_node, len(browse_stack), arg))
 
+    browse_stack.append(widget)
     child = child_if_arg(cur_node, arg)
     f.write("sel child: %s\n" % child)
 
     if child:
-        f.write('activate child %s\n' % child)
-
-        if side_effects.has_key((parent, child)):
-            f.write('side effects %s\n' % child)
-            side_effects[(parent, child)]((parent, child), arg)
-
-        if state_effects.has_key(child):
-            f.write('frame %s\n' % child)
-            main.original_widget = state_effects[child]()
-
+        transition(cur_node, child, arg)
         cur_node = child
 
     elif (len(browse_stack) == 3):
@@ -389,6 +391,9 @@ def browse_into(widget, arg):
 
 def browse_out():
     global cur_node
+    f.write('[browse out] cur:%s level:%d\n' %
+            (cur_node, len(browse_stack)))
+
     if (len(browse_stack) > 0):
         main.original_widget = browse_stack.pop()
         cur_node = parent_of(cur_node)
