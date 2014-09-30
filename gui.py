@@ -248,6 +248,8 @@ side_effects = {}
 # typically show some frame
 state_effects = {}
 
+# only for non-ambiguity of state machine, automatically change to child state
+transient_nodes = []
 
 def child_if_arg(parent, arg):
     match = [ dst for (src, dst, cond) in edges if src == parent and arg == cond]
@@ -269,16 +271,21 @@ context_menu = "actions"
 see_file = "see"
 hardlink_file = "hard link"
 delete_confirm = "delete"
+delete_execute = "delete execute"
 hardlink_confirmed = "hard link confirmed"
 
 edges.append((collisions, filenames, None))
 edges.append((filenames, context_menu, None))
 # doesn context_menu, filenames, see_file -> multiple (xx, filenames) edge
 edges.append((context_menu, see_file, see_file))
+edges.append((see_file, context_menu, None))
 edges.append((context_menu, delete_confirm, delete_confirm))
 edges.append((context_menu, hardlink_file, hardlink_file))
 edges.append((delete_confirm, filenames, True))
 edges.append((delete_confirm, delete_execute, False))
+
+transient_nodes.append(see_file)
+
 
 fcw = CollisionsWalker()
 def show_collisions():
@@ -311,9 +318,14 @@ def remove_if(edge, confirmed):
     Action.remove(D.filename)
     Representation.update_filenames()
 
+def action_see(edge, arg):
+    f.write("see %s\n" % re.escape(D.filename))
+    os.system("see %s" % re.escape(D.filename))
+
 side_effects[(collisions, filenames)] = update_filenames
 side_effects[(filenames, collisions)] = update_collisions
 side_effects[(delete_confirm, filenames)] = remove_if
+side_effects[(context_menu, see_file)] = action_see
 
 cur_node = collisions
 
@@ -341,13 +353,14 @@ def browse_into(widget, arg):
         transition(cur_node, child, arg)
         cur_node = child
 
+        if cur_node in transient_nodes:
+            child = child_if_arg(cur_node, None)
+            transition(cur_node, child, None)
+            cur_node = child
+
     elif (len(browse_stack) == 3):
         action = D.action
-        if (action == "see"):
-            f.write("see %s\n" % re.escape(D.filename))
-            os.system("see %s" % re.escape(D.filename))
-            browse_stack.pop()
-        elif action == "hard-link":
+        if action == "hard-link":
             main.original_widget = HardlinkMenu(browse_stack[-1])
         elif action == "remove":
             title = u'Remove file %s' % D.filename
