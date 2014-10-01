@@ -93,7 +93,7 @@ class CollisionsWalker(urwid.WidgetWrap):
         browse_into(self, None)
 
     def update(self):
-        f.write("CollisionsWalker data changed")
+        f.write("CollisionsWalker data changed\n")
         self.walker.data = D.collisions
         if self.walker.focus >= len(D.collisions):
             self.walker.focus -= 1;
@@ -295,7 +295,6 @@ edges.append((hardlink_execute, filenames, None))
 transient_nodes.append(see_file)
 transient_nodes.append(hardlink_execute)
 
-
 fcw = CollisionsWalker()
 def show_collisions():
     global fcw;
@@ -320,15 +319,12 @@ state_effects[hardlink_confirm] = lambda: ConfirmAction(hardlink_confirm_title()
                                                        main.original_widget)
 
 def update_filenames(edge, arg):
-    # check if differs
-    f.write("browse into filenames\n")
-    filenames = Storage.files_by_crc32(D.collision['crc32'])
-    D.filenames = filenames.fetchall()
+    Representation.update_filenames()
 
 def update_collisions(edge, choice):
-    f.write("browse out filenames\n")
+    Representation.update_collisions()
 
-def remove_if(edge, confirmed):
+def actions_remove(edge, confirmed):
     Action.remove(D.filename)
     Representation.update_filenames()
 
@@ -336,10 +332,16 @@ def action_see(edge, arg):
     f.write("see %s\n" % re.escape(D.filename))
     os.system("see %s" % re.escape(D.filename))
 
+def action_hardlink(edge, arg):
+    f.write("action_hardlink\n")
+    Action.hardlink(D.hardlink_target['Name'], D.filename)
+    Representation.update_filenames()
+
 side_effects[(collisions, filenames)] = update_filenames
 side_effects[(filenames, collisions)] = update_collisions
-side_effects[(delete_confirm, filenames)] = remove_if
+side_effects[(delete_confirm, filenames)] = actions_remove
 side_effects[(context_menu, see_file)] = action_see
+side_effects[(hardlink_execute, filenames)] = action_hardlink
 
 cur_node = collisions
 
@@ -363,69 +365,34 @@ def browse_into(widget, arg):
     child = child_if_arg(cur_node, arg)
     f.write("sel child: %s\n" % child)
 
-    if child:
-        transition(cur_node, child, arg)
+    if not child:
+        f.write("node:%s has no child\n", cur_node)
+        assert(False)
+
+    transition(cur_node, child, arg)
+    cur_node = child
+
+    if cur_node in transient_nodes:
+        child = child_if_arg(cur_node, None)
+        transition(cur_node, child, None)
         cur_node = child
-
-        if cur_node in transient_nodes:
-            child = child_if_arg(cur_node, None)
-            transition(cur_node, child, None)
-            cur_node = child
-
-    elif (len(browse_stack) == 3):
-        action = D.action
-        if action == "hard-link":
-            main.original_widget = HardlinkMenu(browse_stack[-1])
-        elif action == "remove":
-            title = u'Remove file %s' % D.filename
-            main.original_widget = ConfirmAction(title)
-
-    elif (len(browse_stack) == 4):
-        if D.action == "remove":
-            f.write("- selected action %s\n" % D.action)
-            if choice == "Ok":
-                Action.remove(D.filename)
-                Representation.update_filenames()
-            else:
-                f.write("remove not confirmed")
-            browse_stack.pop()
-            browse_stack.pop()
-            main.original_widget = browse_stack.pop()
-        elif D.action == "hard-link":
-            title = u'Hard-link file %s to %s' % (D.filename,
-                                                  D.hardlink_target['Name'])
-            main.original_widget = ConfirmAction(title)
-        else:
-            f.write("invalid level\n");
-
-    elif len(browse_stack) == 5:
-        if D.action == "hard-link":
-            if choice == "Ok":
-                Action.hardlink(D.hardlink_target['Name'], D.filename)
-                Representation.update_filenames()
-            else:
-                f.write("remove not confirmed")
-            browse_stack.pop()
-            browse_stack.pop()
-            browse_stack.pop()
-            main.original_widget = browse_stack.pop()
-        else:
-            f.write("invalid level\n");
-    else:
-        f.write("no more levels\n")
-        browse_stack.pop()
-    f.flush()
 
 def browse_out():
     global cur_node
     f.write('[browse out] cur:%s level:%d\n' %
             (cur_node, len(browse_stack)))
 
-    if (len(browse_stack) > 0):
-        main.original_widget = browse_stack.pop()
-        cur_node = parent_of(cur_node)
-    else:
-        print "browse_stack empty"
+    parent = parent_of(cur_node)
+    #(parent_too, widget) = browse_stack.pop()
+    #if parent != parent_too:
+    #main.original_widget = widget
+
+    if not parent:
+        f.write("node:%s has invalid parent %s\n", cur_node, parent)
+        assert(False)
+
+    transition(cur_node, parent, None)
+    cur_node = parent
 
 def unhandled_input(key):
     if key == 'right':
