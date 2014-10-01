@@ -269,22 +269,31 @@ collisions = "collisions"
 filenames = "filenames"
 context_menu = "actions"
 see_file = "see"
-hardlink_file = "hard link"
 delete_confirm = "delete"
-delete_execute = "delete execute"
-hardlink_confirmed = "hard link confirmed"
+#delete_execute = "delete execute"
+hardlink_sel_source = "hard link select source"
+hardlink_confirm = "hard link confirm"
+hardlink_execute = "hard link execute"
 
 edges.append((collisions, filenames, None))
 edges.append((filenames, context_menu, None))
+
 # doesn context_menu, filenames, see_file -> multiple (xx, filenames) edge
 edges.append((context_menu, see_file, see_file))
 edges.append((see_file, context_menu, None))
+
 edges.append((context_menu, delete_confirm, delete_confirm))
-edges.append((context_menu, hardlink_file, hardlink_file))
 edges.append((delete_confirm, filenames, True))
-edges.append((delete_confirm, delete_execute, False))
+edges.append((delete_confirm, context_menu, False))
+
+edges.append((context_menu, hardlink_sel_source, 'hardlink'))
+edges.append((hardlink_sel_source, hardlink_confirm, None))
+edges.append((hardlink_confirm, context_menu, False))
+edges.append((hardlink_confirm, hardlink_execute, True))
+edges.append((hardlink_execute, filenames, None))
 
 transient_nodes.append(see_file)
+transient_nodes.append(hardlink_execute)
 
 
 fcw = CollisionsWalker()
@@ -303,7 +312,12 @@ state_effects[context_menu] = lambda: ContextMenu(main.original_widget,
                                                    ['see', 'delete', 'hardlink'])
 state_effects[delete_confirm] = lambda: ConfirmAction(delete_confirm,
                                                      main.original_widget)
-#state_effects[hardlink_file] = lambda x: HardlinkMenu(frames[context])
+state_effects[hardlink_sel_source] = lambda: HardlinkMenu(main.original_widget)
+
+def hardlink_confirm_title():
+    return u'Hard-link file %s to %s' % (D.filename, D.hardlink_target['Name'])
+state_effects[hardlink_confirm] = lambda: ConfirmAction(hardlink_confirm_title(),
+                                                       main.original_widget)
 
 def update_filenames(edge, arg):
     # check if differs
