@@ -14,7 +14,6 @@ MIN_FILESIZE = 0
 Storage = storage.Storage(memory=False)
 Storage.create_indices()
 
-browse_stack = []
 class Data(object):
     # collisions represented by first filename
     collisions = ObservableProperty(list())
@@ -254,7 +253,8 @@ transient_nodes = []
 def child_if_arg(parent, arg):
     match = [ dst for (src, dst, cond) in edges if src == parent and arg == cond]
     if not match:
-        return None
+        f.write("node:%s has no child for arg:%s\n" % (parent, arg))
+        assert(False)
     return match[0]
 
 def parent_of(child):
@@ -344,43 +344,42 @@ side_effects[(context_menu, see_file)] = action_see
 side_effects[(hardlink_execute, filenames)] = action_hardlink
 
 cur_node = collisions
+frame_cache = {}
 
 def transition(src, dst, arg):
+    global cur_node
     f.write('transition [%s -> %s]\n' % (src, dst))
-
     if side_effects.has_key((src, dst)):
         f.write('side effects %s\n' % dst)
         side_effects[(src, dst)]((src, dst), arg)
+    cur_node = dst
 
-    if state_effects.has_key(dst):
-        f.write('frame %s\n' % dst)
-        main.original_widget = state_effects[dst]()
+def activate_frame(node):
+    if not state_effects.has_key(cur_node):
+        f.write('no frame for state [%s]\n' % (node))
+        assert(False)
+    f.write('activate frame [%s]\n' % (node))
+    main.original_widget = state_effects[node]()
 
 def browse_into(widget, arg):
     global cur_node
-    f.write('[browse into] cur:%s level:%d arg:%r\n' %
-            (cur_node, len(browse_stack), arg))
+    f.write('[browse into] cur:%s arg:%r\n' % (cur_node, arg))
 
-    browse_stack.append(widget)
+    frame_cache[cur_node] = widget
+
     child = child_if_arg(cur_node, arg)
-    f.write("sel child: %s\n" % child)
-
-    if not child:
-        f.write("node:%s has no child\n", cur_node)
-        assert(False)
-
     transition(cur_node, child, arg)
-    cur_node = child
 
     if cur_node in transient_nodes:
         child = child_if_arg(cur_node, None)
         transition(cur_node, child, None)
-        cur_node = child
+
+    activate_frame(cur_node)
+
 
 def browse_out():
     global cur_node
-    f.write('[browse out] cur:%s level:%d\n' %
-            (cur_node, len(browse_stack)))
+    f.write('[browse out] cur:%s\n' % cur_node)
 
     parent = parent_of(cur_node)
     #(parent_too, widget) = browse_stack.pop()
@@ -392,7 +391,7 @@ def browse_out():
         assert(False)
 
     transition(cur_node, parent, None)
-    cur_node = parent
+    main.original_widget = frame_cache[cur_node]
 
 def unhandled_input(key):
     if key == 'right':
