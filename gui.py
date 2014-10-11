@@ -2,6 +2,7 @@
 import urwid
 import sys, os
 import re
+import errno
 
 import storage
 from observable import ObservableProperty
@@ -207,7 +208,14 @@ class Action:
     @staticmethod
     def remove(filename):
         f.write("do remove %s\n" % (filename))
-        os.remove(filename)
+        try:
+            os.remove(filename)
+        except OSError, e:
+            if e.errno == errno.ENOENT:
+                # nothing to remove
+                pass
+            else:
+                raise e
         Storage.remove_file(filename)
 
 class Representation:
