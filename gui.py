@@ -96,6 +96,7 @@ class CollisionsWalker(urwid.WidgetWrap):
         self.walker.data = D.collisions
         if self.walker.focus >= len(D.collisions):
             self.walker.focus -= 1;
+        self.walker._modified()
 
 
 class FilenamesWalker(urwid.WidgetWrap):
@@ -112,10 +113,9 @@ class FilenamesWalker(urwid.WidgetWrap):
         browse_into(self, None)
 
     def update(self):
-        # self.walker.focus
         f.write("FilenamesWalker data changed\n")
         self.walker.data = D.filenames
-        if self.walker.focus >= len(D.collisions):
+        if self.walker.focus >= len(D.filenames):
             self.walker.focus -= 1;
         self.walker._modified()
 
@@ -150,8 +150,6 @@ class HardlinkMenu(urwid.WidgetWrap):
 class ContextMenu(urwid.WidgetWrap):
     def __init__(self, overlay_parent, options):
         self.title = urwid.Text(strip_prefix(D.filename))
-        Data.filename.observe(self.set_title)
-
         self.children = options
         body = [MenuButton(c, self.callback) for c in options]
         self.walker = urwid.SimpleFocusListWalker(body)
@@ -172,10 +170,6 @@ class ContextMenu(urwid.WidgetWrap):
         D.action = self.children[self.walker.focus]
         f.write("button callback %r\n" % D.action)
         browse_into(self, D.action)
-
-    def set_title(self):
-        f.write("ContextMenu update title\n")
-        self.title.set_text(strip_prefix(D.filename))
 
 def createSimpleListWalker(title, elts, callback):
     body = [urwid.AttrMap(urwid.Text(title), 'title', 'None')]
@@ -205,7 +199,7 @@ class ConfirmAction(urwid.WidgetWrap):
 class Action:
     @staticmethod
     def hardlink(source, linkname):
-        f.write("hard link %s\n" % (linkname))
+        f.write("do hard link %s\n" % (linkname))
         os.unlink(linkname)
         os.link(source, linkname)
         Storage.replace_with_hardlink(source, linkname)
@@ -222,7 +216,6 @@ class Representation:
         f.write("update filenames\n")
         filenames = Storage.files_by_crc32(D.collision['crc32'])
         D.filenames = filenames.fetchall()
-        Representation.update_collisions()
 
     @staticmethod
     def update_collisions():
@@ -322,6 +315,7 @@ def update_filenames(edge, arg):
     Representation.update_filenames()
 
 def update_collisions(edge, choice):
+    # TODO check some dirty flag
     Representation.update_collisions()
 
 def actions_remove(edge, confirmed):
@@ -333,7 +327,6 @@ def action_see(edge, arg):
     os.system("see %s" % re.escape(D.filename))
 
 def action_hardlink(edge, arg):
-    f.write("action_hardlink\n")
     Action.hardlink(D.hardlink_target['Name'], D.filename)
     Representation.update_filenames()
 
@@ -387,8 +380,8 @@ def browse_out():
     #main.original_widget = widget
 
     if not parent:
-        f.write("node:%s has invalid parent %s\n", cur_node, parent)
-        assert(False)
+        f.write("node:%s has invalid parent %s\n" % (cur_node, parent))
+        return
 
     transition(cur_node, parent, None)
     main.original_widget = frame_cache[cur_node]
