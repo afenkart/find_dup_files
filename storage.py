@@ -76,6 +76,7 @@ class Storage:
             cur.execute("CREATE INDEX inodes_inodes_idx ON Inodes (st_dev, st_inode)")
         if not 'files_inodes_idx' in indices:
             cur.execute("CREATE INDEX files_inodes_idx ON Files(st_dev, st_inode)")
+        # add index for size
         self.con.commit()
 
     def drop_indices(self):
@@ -230,7 +231,7 @@ class Storage:
         # search duplicates on Inodes, will not count hardlinks, which is
         # confusing if the top level view in the gui says duplicate count is 2,
         # but in the detail view there are suddenly 3 files
-        return cur.execute("Select COUNT() Count, * FROM (SELECT * FROM FileInodeView WHERE st_size > ? GROUP BY st_inode) GROUP BY crc32 HAVING COUNT(*) > 1 ORDER BY st_size desc, count desc, name", (size,))
+        return cur.execute("Select COUNT() Count, * FROM (SELECT * FROM FileInodeView WHERE st_size > ? GROUP BY st_dev, st_inode) GROUP BY crc32 HAVING COUNT(*) > 1 ORDER BY st_size desc, count desc, name", (size,))
 
     def remove(self, sha1, name):
         """
