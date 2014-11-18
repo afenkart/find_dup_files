@@ -7,3 +7,6 @@ http://www.w3schools.com/sql/sql_groupby.asp
 [urwid]
 http://www.pyvideo.org/video/1568/console-applications-with-urwid
 http://excess.org/urwid/docs/tutorial/
+
+[gui]
+http://martinfowler.com/eaaDev/uiArchs.html

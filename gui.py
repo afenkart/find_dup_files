@@ -10,7 +10,7 @@ from observable import ObservableProperty
 f = open('/tmp/log_gui.txt', 'w+', False)
 
 SKIP_PREFIX = "/home/afenkart/"
-MIN_FILESIZE = 0
+MIN_FILESIZE = 65536
 
 Storage = storage.Storage(memory=False)
 Storage.create_indices()
